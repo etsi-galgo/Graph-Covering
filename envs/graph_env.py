@@ -9,7 +9,7 @@ Created on Fri Jan 12 11:15:14 2024
 import gym
 import numpy as np
 
-class DroneEnv(gym.Env):
+class GraphEnv(gym.Env):
 
     """
     GRAPH ENVIROMENT
@@ -51,25 +51,43 @@ class DroneEnv(gym.Env):
         """
         # Vertex features
         
-        x = self.graph.vs[0]['x']
-        y = self.graph.vs[0]['y']
+        n = len(self.graph.vs)-1
+        
+        x = self.graph.vs[n]['x']
+        y = self.graph.vs[n]['y']
         base = True
         
         # Edge features
-        connected_nodes = np.asarray(np.where(np.asarray(self.graph.get_adjacency()[0]) == 1))
+        connected_nodes = np.asarray(np.where(np.asarray(self.graph.get_adjacency()[n]) == 1))
         connected_nodes = connected_nodes.tolist()[0]
         weight = np.zeros(len(connected_nodes))
         is_segment = np.zeros(len(connected_nodes))
-        to_base = np.zeros(len(connected_nodes))
+#        to_base = np.zeros(len(connected_nodes))
         for i in range(len(connected_nodes)):
-            weight[i] = self.graph.es.select(_within=[0,connected_nodes[i]])["weight"][0]
-            is_segment[i] = self.graph.es.select(_within=[0,connected_nodes[i]])["is_segment"][0]
-            to_base[i] = self.graph.es.select(_within=[0,connected_nodes[i]])["is_segment"][0]
-            
+            weight[i] = self.graph.es.select(_within=[n,connected_nodes[i]])["weight"][0]
+            is_segment[i] = self.graph.es.select(_within=[n,connected_nodes[i]])["is_segment"][0]
+#            to_base[i] = self.graph.es.select(_within=[n,connected_nodes[i]])["is_segment"][0]
+
+        self.state = x, y, base, weight, is_segment, self.max_batery
+
+        return n, self.state
+    
+    
+    
+    def _action_set(self, node): 
+        connected_nodes = np.asarray(np.where(np.asarray(self.graph.get_adjacency()[node]) == 1))
+        connected_nodes = connected_nodes.tolist()[0] 
         
-
-        self.state = x, y, base, weight, is_segment, to_base, self.max_batery
-
-        return self.state
+        action_dict = {}
+        for index, element in enumerate(connected_nodes):
+            action_dict[index] = element
+            
+        return action_dict
+        
+        
+        
+        
+    
+    
 
 

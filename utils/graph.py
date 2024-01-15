@@ -58,7 +58,7 @@ class Graph():
             lines = pd.concat([lines,line], ignore_index=True)
         return lines
 
-    def _segment_to_graph(self):
+    def _graph_params(self):
         """
         Converting generated lines into a graph of ighaph
         """          
@@ -74,13 +74,18 @@ class Graph():
             x[i*2+1] = ends[i]
             y[i*2] = hight[i]
             y[i*2+1] = hight[i]   
-            
-            
+                 
         edge = np.zeros([self.lines.shape[0],2])    
         for i in range(self.lines.shape[0]):
             edge[i] = [i*2,i*2+1]
+        
+        return n_vertices, edge, x, y
+        
             
-        g = ig.Graph(n_vertices, edge)
+    
+    def _segment_to_graph(self):      
+        self.n_vertices, self.edge, x, y = self._graph_params()
+        g = ig.Graph(self.n_vertices, self.edge)
         g.vs['x'] = x
         g.vs['y'] = y
         g.vs['base'] = False
@@ -143,6 +148,12 @@ class Graph():
                     if (g.es[k]["weight"] > max_lenght) and (g.es[k]["is_segment"]==False):
                         g.delete_edges(k)
 
+
+    def _add_segments(self, g, segments):
+        for i in range(segments.shape[0]):
+            g.es[g.get_eid(int(segments[i,0]), int(segments[i,1]))]["is_segment"] = True    
+        g.es["is_segment"] = [False if is_segment is None else is_segment for is_segment in g.es["is_segment"]]
+    
     def build_n_closest(self, n):
         """
         Building a graph connecting each vertex with n closest vertices
@@ -169,8 +180,8 @@ class Graph():
         g_delaunay.simplify()
         
         self._weigh_edges(g_delaunay)
-        g_delaunay = self.graph + g_delaunay
-        g_delaunay.es["is_segment"] = [False if is_segment is None else is_segment for is_segment in g_delaunay.es["is_segment"]]
+        self._add_segments(g_delaunay, self.edge)
+
         return g_delaunay
 
     def connect_all_to_base(self, g):
