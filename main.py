@@ -24,6 +24,7 @@ for episode in range(total_episodes):
     print("Episode ", episode, " of ", total_episodes)
     
     for i in range(env_iter):
+        env_.render()
         n_actions = graph_path.degree(node)
         # Pick a random action 
         action = random.choice(range(n_actions))        
@@ -34,5 +35,4 @@ for episode in range(total_episodes):
         print("coordinates: (%r, %r)" % (x, y))
         print("battery level:", battery) 
         
-        
-
+env_.close()

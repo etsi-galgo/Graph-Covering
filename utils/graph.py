@@ -35,6 +35,7 @@ class Graph():
         self.lines = self._multiple_lines(l, min_seg, max_seg, n, max_hight) 
         self.graph = self._segment_to_graph()
         self.graph = self._add_base(self.graph, base) # Change this because in some cases we connct and than add base and connext it to all
+        
     
 
     def _line_generate(self, lenght, m):
@@ -90,6 +91,8 @@ class Graph():
         g.vs['y'] = y
         g.vs['base'] = False
         g.es['is_segment'] = True
+        
+        
         return g
     
     def _add_base(self, g, base):
@@ -181,6 +184,7 @@ class Graph():
         
         self._weigh_edges(g_delaunay)
         self._add_segments(g_delaunay, self.edge)
+        g_delaunay.es['covered'] = False
 
         return g_delaunay
 
@@ -202,10 +206,10 @@ class Graph():
         Plotting the graph with matplotlib
         """  
         color_dict_vs = {True: "red", False: "black"}
-    #    color_dict_es = {True: "blue", False: "black"}
+        color_dict_es = {True: "red", False: "black"}
         edge_width = [2 + 10 * int(is_segment) for is_segment in g.es["is_segment"]]
         vertex_color = [color_dict_vs[base] for base in g.vs["base"]]
-    #    edge_color = [color_dict_es[to_base] for to_base in g.es["to_base"]]
+        edge_color = [color_dict_es[covered] for covered in g.es["covered"]]
         fig, ax = plt.subplots(figsize=(50,50))
         ig.plot(
             g,
@@ -217,7 +221,7 @@ class Graph():
             vertex_frame_width=4.0,
             vertex_color = vertex_color,
             edge_width = edge_width,
-    #        edge_color = edge_color,
+            edge_color = edge_color,
             
         )
         plt.show()    

@@ -8,6 +8,9 @@ Created on Fri Jan 12 11:15:14 2024
 
 import gym
 import numpy as np
+import igraph as ig
+import matplotlib.pyplot as plt
+from envs import rendering
 
 class GraphEnv(gym.Env):
 
@@ -45,6 +48,9 @@ class GraphEnv(gym.Env):
         self.move_reward = move_reward
         self.crash_reward = crash_reward
         
+        # visualization
+        self.viewer = None
+        
 
     def reset(self):
         """
@@ -57,6 +63,7 @@ class GraphEnv(gym.Env):
         
         self.battery = self.max_battery
         self.state = self._get_state(base_node)
+        self.graph.es["covered"] = False
 
         return base_node, self.state
     
@@ -75,7 +82,8 @@ class GraphEnv(gym.Env):
         reward = self._get_reward(node, new_node)
         done =  bool(self.battery<0)
         
-        #TODO: change covered segment into zero
+        self.graph.es.select(_within=[node, new_node])["is_segment"] = False
+        self.graph.es.select(_within=[node, new_node])["covered"] = True
         
         return new_node, self.state, reward, done, {}
         
@@ -102,6 +110,8 @@ class GraphEnv(gym.Env):
         weight = np.zeros(len(connected_nodes))
         is_segment = np.zeros(len(connected_nodes))
 #        to_base = np.zeros(len(connected_nodes))
+
+
         for i in range(len(connected_nodes)):
             weight[i] = self.graph.es.select(_within=[node,connected_nodes[i]])["weight"][0]
             is_segment[i] = self.graph.es.select(_within=[node,connected_nodes[i]])["is_segment"][0]
@@ -123,7 +133,58 @@ class GraphEnv(gym.Env):
         return r_cov + r_move + r_crash
         
         
+    def _get_image(self):
+        """
+        Plotting the graph with matplotlib
+        """ 
+        image = "tmp.png"
+        color_dict_vs = {True: "red", False: "black"}
+        color_dict_es = {True: "red", False: "black"}
+        edge_width = [2 + 7 * int(is_segment) for is_segment in self.graph.es["is_segment"]]
+        vertex_color = [color_dict_vs[base] for base in self.graph.vs["base"]]
+        edge_color = [color_dict_es[covered] for covered in self.graph.es["covered"]]
+        ig.plot(
+            self.graph,
+            target=image,
+            layout='auto',
+            bbox=(1200, 1200),
+            vertex_size = 20,
+            vertex_frame_width=4.0,
+            vertex_color = vertex_color,
+            edge_width = edge_width,
+            edge_color = edge_color,
+            
+        )
+
         
-        
-        
+        return image
     
+    def render(self, mode='rgb_array', show=True):
+        if not self.state:
+            return
+        screen_width = 640
+        screen_height = 640  
+
+        if self.viewer is None:
+            self.viewer = rendering.Viewer(screen_width, screen_height)
+
+            self.trans = rendering.Transform()
+            self.trans.set_translation(screen_width/2, screen_height/2)
+
+            image = self._get_image()
+            img = rendering.Image(image, screen_width, screen_height)
+            img.add_attr(self.trans)
+            self.viewer.add_geom(img)       
+        
+        if self.viewer is not None and show:
+            image = self._get_image()
+            img = rendering.Image(image, screen_width, screen_height)
+            img.add_attr(self.trans)
+            self.viewer.geoms[0] = img    
+            
+        return self.viewer.render(return_rgb_array=mode == 'rgb_array')
+        
+    def close(self):
+        if self.viewer:
+            self.viewer.close()
+            self.viewer = None    
