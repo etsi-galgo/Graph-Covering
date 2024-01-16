@@ -8,17 +8,19 @@ Created on Fri Jan 12 14:34:53 2024
 from utils.graph import Graph
 from envs.graph_env import GraphEnv
 import qlearn
+from sys import platform
 
-def main(total_episodes, env_iter):
+def main(total_episodes, env_iter, show = False):
     g = Graph()
-    graph_path = g.build_delaunay()
-    env_ = GraphEnv(graph_path)
+    
     
     ql = qlearn.QLearn(actions = 0, alpha=0.2, gamma=0.8, epsilon=0.9)
     epsilon_discount = 0.9986
     highest_reward = 0
         
     for episode in range(total_episodes):
+        graph_path = g.build_delaunay()
+        env_ = GraphEnv(graph_path)
         done = False
         cumulated_reward = 0
         
@@ -34,7 +36,8 @@ def main(total_episodes, env_iter):
         print("Episode ", episode, " of ", total_episodes)
         
         for i in range(env_iter):
-            env_.render()
+            if show:
+                env_.render()
             n_actions = graph_path.degree(node)
 
             # Pick an action based on the current state
@@ -53,13 +56,20 @@ def main(total_episodes, env_iter):
    
             if not(done):
                 state = nextState
-   
-    env_.close()
+            else:
+                break
+                
+        print("Cumulated reward:", cumulated_reward)
+        print("Traveled distance:", env_.total_traveled_distance)
+        print("Segments covered:", env_.n_segments_covered)
+        env_.close()
     
 if __name__ == "__main__":
 
     total_episodes = 5
-    env_iter = 20
+    env_iter = 100
     
+    if platform == "win32": show = True
+    else: show = False
     # or vars(opt)
-    main(total_episodes, env_iter)
+    main(total_episodes, env_iter, show)

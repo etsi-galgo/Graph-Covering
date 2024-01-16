@@ -9,7 +9,6 @@ Created on Fri Jan 12 11:15:14 2024
 import gym
 import numpy as np
 import igraph as ig
-import matplotlib.pyplot as plt
 from envs import rendering
 
 class GraphEnv(gym.Env):
@@ -32,7 +31,7 @@ class GraphEnv(gym.Env):
     """
 
     def __init__(
-            self, graph, max_batery:int=100, cover_reward=5, move_reward=-1, crash_reward=-100):
+            self, graph, max_batery:int=500, cover_reward=5, move_reward=-1, crash_reward=-100):
         self.__version__ = "0.0.1"
         """
         cover_reward: the constant value multiplied by the cell of the relevance map covered. This reward is only used 
@@ -59,7 +58,8 @@ class GraphEnv(gym.Env):
         self.battery = self.max_battery
         self.state = self._get_state(base_node)
         self.graph.es["covered"] = False
-
+        self.n_segments_covered = 0
+        self.total_traveled_distance = 0
         return base_node, self.state
     
     
@@ -72,13 +72,17 @@ class GraphEnv(gym.Env):
 #        assert action_space.contains(action), err_msg   
         
         new_node = action_space[action]
-        self.battery -= 1
+        traveled_distance = self.graph.es.select(_within=[node,new_node])["weight"][0] 
+        self.battery -= traveled_distance
         self.state = self._get_state(new_node)
         
         reward = self._get_reward(node, new_node)
         done =  bool(self.battery<0)
+        if self.graph.es.select(_within=[node, new_node])["is_segment"][0] == True:
+            self.n_segments_covered+=1
+            self.graph.es.select(_within=[node, new_node])["is_segment"] = False
         
-        self.graph.es.select(_within=[node, new_node])["is_segment"] = False
+        self.total_traveled_distance += traveled_distance
         self.graph.es.select(_within=[node, new_node])["covered"] = True
         
         return new_node, self.state, reward, done, {}
