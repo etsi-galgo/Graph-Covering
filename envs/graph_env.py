@@ -53,12 +53,7 @@ class GraphEnv(gym.Env):
         
 
     def reset(self):
-        """
-        Reset the environment. Use a random seed if you want to reproduce the random actions for 
-        initializing the environment (such as random initial position of the agent).
-        """
-        # Vertex features
-        
+   
         base_node = len(self.graph.vs)-1
         
         self.battery = self.max_battery
@@ -69,6 +64,7 @@ class GraphEnv(gym.Env):
     
     
     def step(self, action, node):
+
         
         action_space = self._get_actions(node)
         
@@ -87,6 +83,35 @@ class GraphEnv(gym.Env):
         
         return new_node, self.state, reward, done, {}
         
+    
+    def render(self, mode='rgb_array', show=True):
+
+        screen_width = 640
+        screen_height = 640  
+
+        if self.viewer is None:
+            self.viewer = rendering.Viewer(screen_width, screen_height)
+
+            self.trans = rendering.Transform()
+            self.trans.set_translation(screen_width/2, screen_height/2)
+
+            image = self._get_image()
+            img = rendering.Image(image, screen_width, screen_height)
+            img.add_attr(self.trans)
+            self.viewer.add_geom(img)       
+        
+        if self.viewer is not None and show:
+            image = self._get_image()
+            img = rendering.Image(image, screen_width, screen_height)
+            img.add_attr(self.trans)
+            self.viewer.geoms[0] = img    
+            
+        return self.viewer.render(return_rgb_array=mode == 'rgb_array')
+        
+    def close(self):
+        if self.viewer:
+            self.viewer.close()
+            self.viewer = None  
     
     def _get_actions(self, node): 
         connected_nodes = np.asarray(np.where(np.asarray(self.graph.get_adjacency()[node]) == 1))
@@ -134,9 +159,6 @@ class GraphEnv(gym.Env):
         
         
     def _get_image(self):
-        """
-        Plotting the graph with matplotlib
-        """ 
         image = "tmp.png"
         color_dict_vs = {True: "red", False: "black"}
         color_dict_es = {True: "red", False: "black"}
@@ -156,35 +178,5 @@ class GraphEnv(gym.Env):
             
         )
 
-        
         return image
-    
-    def render(self, mode='rgb_array', show=True):
-        if not self.state:
-            return
-        screen_width = 640
-        screen_height = 640  
-
-        if self.viewer is None:
-            self.viewer = rendering.Viewer(screen_width, screen_height)
-
-            self.trans = rendering.Transform()
-            self.trans.set_translation(screen_width/2, screen_height/2)
-
-            image = self._get_image()
-            img = rendering.Image(image, screen_width, screen_height)
-            img.add_attr(self.trans)
-            self.viewer.add_geom(img)       
-        
-        if self.viewer is not None and show:
-            image = self._get_image()
-            img = rendering.Image(image, screen_width, screen_height)
-            img.add_attr(self.trans)
-            self.viewer.geoms[0] = img    
-            
-        return self.viewer.render(return_rgb_array=mode == 'rgb_array')
-        
-    def close(self):
-        if self.viewer:
-            self.viewer.close()
-            self.viewer = None    
+      
