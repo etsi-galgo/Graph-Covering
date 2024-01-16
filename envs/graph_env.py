@@ -29,8 +29,7 @@ class GraphEnv(gym.Env):
     """
 
     def __init__(
-            self, graph, max_batery:int=100, cover_reward=5, move_reward=-1, crash_reward=-100, action_prob:int=1
-        ):
+            self, graph, max_batery:int=100, cover_reward=5, move_reward=-1, crash_reward=-100):
         self.__version__ = "0.0.1"
         """
         cover_reward: the constant value multiplied by the cell of the relevance map covered. This reward is only used 
@@ -41,7 +40,10 @@ class GraphEnv(gym.Env):
             of things that can go wrong.
         """
         self.graph = graph
-        self.max_batery = max_batery
+        self.max_battery = max_batery
+        self.cover_reward = cover_reward
+        self.move_reward = move_reward
+        self.crash_reward = crash_reward
         
 
     def reset(self):
@@ -51,30 +53,34 @@ class GraphEnv(gym.Env):
         """
         # Vertex features
         
-        n = len(self.graph.vs)-1
+        base_node = len(self.graph.vs)-1
         
-        x = self.graph.vs[n]['x']
-        y = self.graph.vs[n]['y']
-        base = True
+        self.battery = self.max_battery
+        self.state = self._get_state(base_node)
+
+        return base_node, self.state
+    
+    
+    def step(self, action, node):
         
-        # Edge features
-        connected_nodes = np.asarray(np.where(np.asarray(self.graph.get_adjacency()[n]) == 1))
-        connected_nodes = connected_nodes.tolist()[0]
-        weight = np.zeros(len(connected_nodes))
-        is_segment = np.zeros(len(connected_nodes))
-#        to_base = np.zeros(len(connected_nodes))
-        for i in range(len(connected_nodes)):
-            weight[i] = self.graph.es.select(_within=[n,connected_nodes[i]])["weight"][0]
-            is_segment[i] = self.graph.es.select(_within=[n,connected_nodes[i]])["is_segment"][0]
-#            to_base[i] = self.graph.es.select(_within=[n,connected_nodes[i]])["is_segment"][0]
-
-        self.state = x, y, base, weight, is_segment, self.max_batery
-
-        return n, self.state
+        action_space = self._get_actions(node)
+        
+#        err_msg = "%r (%s) invalid" % (action, type(action))
+#        assert action_space.contains(action), err_msg   
+        
+        new_node = action_space[action]
+        self.battery -= 1
+        self.state = self._get_state(new_node)
+        
+        reward = self._get_reward(node, new_node)
+        done =  bool(self.battery<0)
+        
+        #TODO: change covered segment into zero
+        
+        return new_node, self.state, reward, done, {}
+        
     
-    
-    
-    def _action_set(self, node): 
+    def _get_actions(self, node): 
         connected_nodes = np.asarray(np.where(np.asarray(self.graph.get_adjacency()[node]) == 1))
         connected_nodes = connected_nodes.tolist()[0] 
         
@@ -83,11 +89,41 @@ class GraphEnv(gym.Env):
             action_dict[index] = element
             
         return action_dict
+    
+    
+    def _get_state(self, node):
+        x = self.graph.vs[node]['x']
+        y = self.graph.vs[node]['y']
+        base = self.graph.vs[node]['base']
+        
+        # Edge features
+        connected_nodes = np.asarray(np.where(np.asarray(self.graph.get_adjacency()[node]) == 1))
+        connected_nodes = connected_nodes.tolist()[0]
+        weight = np.zeros(len(connected_nodes))
+        is_segment = np.zeros(len(connected_nodes))
+#        to_base = np.zeros(len(connected_nodes))
+        for i in range(len(connected_nodes)):
+            weight[i] = self.graph.es.select(_within=[node,connected_nodes[i]])["weight"][0]
+            is_segment[i] = self.graph.es.select(_within=[node,connected_nodes[i]])["is_segment"][0]
+#            to_base[i] = self.graph.es.select(_within=[n,connected_nodes[i]])["is_segment"][0]
+
+        return x, y, base, weight, is_segment, self.battery
+    
+    
+    def _get_reward(self, node, new_node):  
+        
+        covered_segment = self.graph.es.select(_within=[node,new_node])["is_segment"][0]
+        traveled_distance = self.graph.es.select(_within=[node,new_node])["weight"][0]
+        crash_free = self.battery>5
+        
+        r_cov = crash_free * traveled_distance * self.cover_reward * covered_segment
+        r_move =  crash_free * traveled_distance * self.move_reward
+        r_crash = (not crash_free) * self.crash_reward
+        
+        return r_cov + r_move + r_crash
+        
         
         
         
         
     
-    
-
-
