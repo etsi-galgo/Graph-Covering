@@ -43,6 +43,7 @@ def main(total_episodes, env_iter, show = False):
             # Pick an action based on the current state
             ql.actions = range(n_actions)
             action = ql.chooseAction(state)
+            print("Action", action);
             
             # Execute the action and get feedback                    
             node, observation, reward, done, _ = env_.step(action, node)
