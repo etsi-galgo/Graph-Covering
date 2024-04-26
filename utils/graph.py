@@ -15,7 +15,7 @@ from scipy.spatial import Delaunay
 
 class Graph():
     
-    def __init__(self, l = 50, min_seg = 2, max_seg = 5, n = 5 , max_hight = 50, base=[0,25]):
+    def __init__(self, lines = None, base=[0,25], l = 50, min_seg = 2, max_seg = 5, n = 5 , max_hight = 50):
         
     
         self.__version__ = "0.0.1"
@@ -32,10 +32,14 @@ class Graph():
         self.base = base
         
         # segments generation
-        self.lines = self._multiple_lines(l, min_seg, max_seg, n, max_hight) 
+        if lines == None:
+            self.lines = self._multiple_lines(l, min_seg, max_seg, n, max_hight)
+        else:
+            self.lines = lines
+        
         self.graph = self._segment_to_graph()
         self.graph = self._add_base(self.graph, base) # Change this because in some cases we connct and than add base and connext it to all
-        
+        self.connected_graph = self.graph
     
 
     def _line_generate(self, lenght, m):
@@ -185,8 +189,23 @@ class Graph():
         self._weigh_edges(g_delaunay)
         self._add_segments(g_delaunay, self.edge)
         g_delaunay.es['covered'] = False
-
+        
+        self.connected_graph =  g_delaunay
         return g_delaunay
+    
+    def n_segments(self):
+        return sum(self.connected_graph.es["is_segment"])
+    
+    def total_length(self):
+        return sum(self.connected_graph.es["weight"])    
+    
+    def segment_length(self):
+        s_length = 0
+        for edge in self.connected_graph.es:
+            if edge["is_segment"] == True:    
+                s_length += edge["weight"]
+        return s_length
+            
 
     def connect_all_to_base(self, g):
         """

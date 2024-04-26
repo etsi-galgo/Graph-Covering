@@ -31,7 +31,7 @@ class GraphEnv(gym.Env):
     """
 
     def __init__(
-            self, graph, max_batery:int=500, cover_reward=5, move_reward=-1, crash_reward=-100):
+            self, graph, max_battery:int=1000, cover_reward=5, move_reward=-1, crash_reward=-100):
         self.__version__ = "0.0.1"
         """
         cover_reward: the constant value multiplied by the cell of the relevance map covered. This reward is only used 
@@ -42,7 +42,7 @@ class GraphEnv(gym.Env):
             of things that can go wrong.
         """
         self.graph = graph
-        self.max_battery = max_batery
+        self.max_battery = max_battery
         self.cover_reward = cover_reward
         self.move_reward = move_reward
         self.crash_reward = crash_reward
@@ -60,7 +60,9 @@ class GraphEnv(gym.Env):
         self.graph.es["covered"] = False
         self.n_segments_covered = 0
         self.total_traveled_distance = 0
+        self.coverage_distance = 0
         return base_node, self.state
+
     
     
     def step(self, action, node):
@@ -79,8 +81,10 @@ class GraphEnv(gym.Env):
         reward = self._get_reward(node, new_node)
         done =  bool(self.battery<0)
         if self.graph.es.select(_within=[node, new_node])["is_segment"][0] == True:
-            self.n_segments_covered+=1
+            self.n_segments_covered += 1
+            self.coverage_distance += traveled_distance
             self.graph.es.select(_within=[node, new_node])["is_segment"] = False
+            
         
         self.total_traveled_distance += traveled_distance
         self.graph.es.select(_within=[node, new_node])["covered"] = True
@@ -146,22 +150,43 @@ class GraphEnv(gym.Env):
             is_segment[i] = self.graph.es.select(_within=[node,connected_nodes[i]])["is_segment"][0]
 #            to_base[i] = self.graph.es.select(_within=[n,connected_nodes[i]])["is_segment"][0]
 
-        return x, y, base, weight, is_segment, self.battery
+        charged = self._battery_level()
+
+        return x, y, base, weight, is_segment, charged
     
     
     def _get_reward(self, node, new_node):  
         
         covered_segment = self.graph.es.select(_within=[node,new_node])["is_segment"][0]
         traveled_distance = self.graph.es.select(_within=[node,new_node])["weight"][0]
+        overlapping = self.graph.es.select(_within=[node,new_node])["covered"][0]
         crash_free = self.battery>5
         
         r_cov = crash_free * traveled_distance * self.cover_reward * covered_segment
         r_move =  crash_free * traveled_distance * self.move_reward
+        r_overlapping =  crash_free * traveled_distance * self.move_reward * overlapping
+        
         r_crash = (not crash_free) * self.crash_reward
         
-        return r_cov + r_move + r_crash
         
-        
+        return r_cov + r_move + r_crash + r_overlapping
+    
+    
+    def _battery_level(self):       
+        if self.battery<0:
+            return -1
+        if self.battery < self.max_battery/5:
+            return 0
+        if self.battery < 2*self.max_battery/5:
+            return 1
+        if self.battery < 3*self.max_battery/5:
+            return 2
+        if self.battery < 4*self.max_battery/5:
+            return 3
+        else:
+            return 4
+       
+       
     def _get_image(self):
         image = "tmp.png"
         color_dict_vs = {True: "red", False: "black"}
