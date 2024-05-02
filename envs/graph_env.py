@@ -31,7 +31,7 @@ class GraphEnv(gym.Env):
     """
 
     def __init__(
-            self, graph, max_battery:int=1000, cover_reward=5, move_reward=-1, crash_reward=-100):
+            self, graph, max_battery:int=500, cover_reward=10, move_reward=-1, crash_reward=-500):
         self.__version__ = "0.0.1"
         """
         cover_reward: the constant value multiplied by the cell of the relevance map covered. This reward is only used 
@@ -54,8 +54,10 @@ class GraphEnv(gym.Env):
     def reset(self):
    
         base_node = len(self.graph.vs)-1
+        self.graph.vs[base_node]['here'] = True
         
         self.battery = self.max_battery
+        print("battery level:", self.battery)
         self.state = self._get_state(base_node)
         self.graph.es["covered"] = False
         self.n_segments_covered = 0
@@ -79,12 +81,24 @@ class GraphEnv(gym.Env):
         self.state = self._get_state(new_node)
         
         reward = self._get_reward(node, new_node)
-        done =  bool(self.battery<0)
+        
+        self.graph.vs[node]['here'] = False
+        self.graph.vs[new_node]['here'] = True
+               
+        
+        if bool(self.battery<0) or sum(self.graph.es["is_segment"])==0:
+            done = True
+        else: done = False
+            
         if self.graph.es.select(_within=[node, new_node])["is_segment"][0] == True:
             self.n_segments_covered += 1
             self.coverage_distance += traveled_distance
             self.graph.es.select(_within=[node, new_node])["is_segment"] = False
-            
+        
+        if self.graph.vs[new_node]['base'] == True:
+            print("recharging")
+            self.battery = self.max_battery
+        
         
         self.total_traveled_distance += traveled_distance
         self.graph.es.select(_within=[node, new_node])["covered"] = True
@@ -133,26 +147,27 @@ class GraphEnv(gym.Env):
     
     
     def _get_state(self, node):
-        x = self.graph.vs[node]['x']
-        y = self.graph.vs[node]['y']
-        base = self.graph.vs[node]['base']
+#        x = self.graph.vs[node]['x']
+#        y = self.graph.vs[node]['y']
+#        base = self.graph.vs[node]['base']
         
         # Edge features
         connected_nodes = np.asarray(np.where(np.asarray(self.graph.get_adjacency()[node]) == 1))
         connected_nodes = connected_nodes.tolist()[0]
-        weight = np.zeros(len(connected_nodes))
+#        weight = np.zeros(len(connected_nodes))
         is_segment = np.zeros(len(connected_nodes))
 #        to_base = np.zeros(len(connected_nodes))
-
+        covered = np.zeros(len(connected_nodes))
 
         for i in range(len(connected_nodes)):
-            weight[i] = self.graph.es.select(_within=[node,connected_nodes[i]])["weight"][0]
+#            weight[i] = self.graph.es.select(_within=[node,connected_nodes[i]])["weight"][0]
             is_segment[i] = self.graph.es.select(_within=[node,connected_nodes[i]])["is_segment"][0]
+            covered[i] = self.graph.es.select(_within=[node,connected_nodes[i]])["covered"][0]
 #            to_base[i] = self.graph.es.select(_within=[n,connected_nodes[i]])["is_segment"][0]
 
         charged = self._battery_level()
 
-        return x, y, base, weight, is_segment, charged
+        return node, is_segment, covered, charged
     
     
     def _get_reward(self, node, new_node):  
@@ -189,17 +204,20 @@ class GraphEnv(gym.Env):
        
     def _get_image(self):
         image = "tmp.png"
-        color_dict_vs = {True: "red", False: "black"}
+        color_dict_vs = {True: "green", False: "black"}
         color_dict_es = {True: "red", False: "black"}
         edge_width = [2 + 7 * int(is_segment) for is_segment in self.graph.es["is_segment"]]
-        vertex_color = [color_dict_vs[base] for base in self.graph.vs["base"]]
+        vertex_color = [color_dict_vs[here] for here in self.graph.vs["here"]]
         edge_color = [color_dict_es[covered] for covered in self.graph.es["covered"]]
+        
         ig.plot(
             self.graph,
             target=image,
             layout='auto',
             bbox=(1200, 1200),
             vertex_size = 20,
+            vertex_label = ["B"* int(base) for base in self.graph.vs["base"]],
+            vertex_label_color = "red",
             vertex_frame_width=4.0,
             vertex_color = vertex_color,
             edge_width = edge_width,

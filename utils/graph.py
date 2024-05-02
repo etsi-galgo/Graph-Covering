@@ -15,7 +15,7 @@ from scipy.spatial import Delaunay
 
 class Graph():
     
-    def __init__(self, lines = None, base=[0,25], l = 50, min_seg = 2, max_seg = 5, n = 5 , max_hight = 50):
+    def __init__(self, lines = pd.Series([]), base=[0,25], l = 50, min_seg = 2, max_seg = 5, n = 5 , max_hight = 50):
         
     
         self.__version__ = "0.0.1"
@@ -32,7 +32,7 @@ class Graph():
         self.base = base
         
         # segments generation
-        if lines == None:
+        if lines.empty:
             self.lines = self._multiple_lines(l, min_seg, max_seg, n, max_hight)
         else:
             self.lines = lines
@@ -94,6 +94,7 @@ class Graph():
         g.vs['x'] = x
         g.vs['y'] = y
         g.vs['base'] = False
+        g.vs['here'] = False
         g.es['is_segment'] = True
         
         
@@ -109,6 +110,7 @@ class Graph():
         g.vs[n]['y'] = base[0]
         g.vs[n]["base"] = True
         g.vs[0:n]["base"] = False
+        g.vs[n]['here'] = False
         return g
 
     def _weigh_edges(self, g):
@@ -224,10 +226,11 @@ class Graph():
         """
         Plotting the graph with matplotlib
         """  
-        color_dict_vs = {True: "red", False: "black"}
+        color_dict_vs = {True: "green", False: "black"}
         color_dict_es = {True: "red", False: "black"}
+        
         edge_width = [2 + 10 * int(is_segment) for is_segment in g.es["is_segment"]]
-        vertex_color = [color_dict_vs[base] for base in g.vs["base"]]
+        vertex_color = [color_dict_vs[here] for here in g.vs["here"]]
         edge_color = [color_dict_es[covered] for covered in g.es["covered"]]
         fig, ax = plt.subplots(figsize=(50,50))
         ig.plot(
@@ -235,7 +238,7 @@ class Graph():
             target=ax,
             layout='auto',
             vertex_size = 0.5,
-            vertex_label = ["\n     B"* int(base) for base in g.vs["base"]],
+            vertex_label = ["B"* int(base) for base in g.vs["base"]],
             vertex_label_size = 70,
             vertex_frame_width=4.0,
             vertex_color = vertex_color,

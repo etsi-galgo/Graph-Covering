@@ -10,6 +10,7 @@ from envs.graph_env import GraphEnv
 import qlearn
 from sys import platform
 import json
+import pandas as pd
 
 def main(total_episodes, env_iter, show = False):
     g = Graph()
@@ -46,12 +47,10 @@ def main(total_episodes, env_iter, show = False):
             # Pick an action based on the current state
             ql.actions = range(n_actions)
             action, q = ql.chooseAction(state, return_q = True)
-            print(q)
-            
-            print("Action", action);
             
             # Execute the action and get feedback                    
             node, observation, reward, done, _ = env_.step(action, node)
+            
             cumulated_reward += reward
             
             if highest_reward < cumulated_reward:
@@ -64,6 +63,7 @@ def main(total_episodes, env_iter, show = False):
                 state = nextState
             else:
                 break
+        print(i)
                 
         print("Cumulated reward:", cumulated_reward)
         print("Traveled distance:", env_.total_traveled_distance)
@@ -77,7 +77,7 @@ def main(total_episodes, env_iter, show = False):
 
 def test(q_table, graph, env_iter, show = True):
     
-    ql = qlearn.QLearn(actions = 0, alpha=0.2, gamma=0.8, epsilon=1)
+    ql = qlearn.QLearn(actions = 0, alpha=0.2, gamma=0.8, epsilon=0)
     ql.q = q_table
     
     highest_reward = 0
@@ -104,8 +104,7 @@ def test(q_table, graph, env_iter, show = True):
         # Pick an action based on the current state
         ql.actions = range(n_actions)
         action = ql.chooseAction(state)
-        print("Action", action);
-            
+        print(action)
         # Execute the action and get feedback                    
         node, observation, reward, done, _ = env_.step(action, node)
         cumulated_reward += reward
@@ -120,7 +119,8 @@ def test(q_table, graph, env_iter, show = True):
             state = nextState
         else:
             break
-                
+        
+    print(i)        
     print("Cumulated reward:", cumulated_reward)
     print("Traveled distance:", env_.total_traveled_distance)
     print("Total length:",  graph.total_length())
@@ -142,16 +142,36 @@ def save_graph(graph):
     graph.lines.to_csv ("lines.csv", index = False, header=True)
     base_dic = {'base': graph.base}
     with open("base.json", "w") as outfile: 
-        json.dump(base_dic, outfile)    
+        json.dump(base_dic, outfile)   
+        
+def open_graph(base_file = "base.json", line_file = "lines.csv"):
+    base_dic = json.load(open("base.json"))
+    base = base_dic['base']
+    lines = pd.read_csv("lines.csv")
+    graph = Graph(lines, base)
+    return graph
+     
     
     
 if __name__ == "__main__":
 
-    total_episodes = 5
-    env_iter = 10
+    total_episodes = 500
+    env_iter = 200
     
     if platform == "win32": show = True
     else: show = False
     # or vars(opt)
-    graph, q_table = main(total_episodes, env_iter, show)
+#    graph, q_table = main(total_episodes, env_iter, show)
+#    save_q_table_to_json(q_table)
+#    save_graph(graph)
+    
+    # test
+    # recover Q-table
+    q_table = get_q_table_from_json()
+    # recover graph
+    graph = open_graph()
+    
+    test(q_table, graph, env_iter)
+    
+    
     
