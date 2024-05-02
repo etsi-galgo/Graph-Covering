@@ -5,7 +5,6 @@ Created on Fri Jan 12 11:15:14 2024
 @author: Alina Kasiuk
 """
 
-
 import gym
 import numpy as np
 import igraph as ig
@@ -15,32 +14,48 @@ class GraphEnv(gym.Env):
 
     """
     GRAPH ENVIROMENT
-    
+    ----------
     Description:
+    
+    A drone with extended autonomy and limited battery starts on the base node
+    and the goal is to find a strategy to opimize the coverage of parallel
+    linear segments throught time.
+    
+    The problem is simplified by segment discretization and graph constuction 
+    such an action of the RL agent correspond to an edge of the graph.
+    ----------
+    Graph:
+    The graph is build with igraph library.
+    
+    Node features: 
+        - 'x', 'y': continious = node coordinates
+        - 'base': binary = is the node a base or not
+        - 'here': binary = current position
+        
+    Edge features:
+        - 'weight': continious = euqulidean distance between nodes
+        - 'is_segment': binary = the edge is a segment to cover or not
+        - 'covered': binary = the edge is alredy covered or not
 
-       
-    Reward:
-    ***    
-
-    Starting State: on the base node
-    ***
-
-
-    Episode Termination:
-    ***
     """
+    #TODO: Change covered/not covered by covering X times: binary to integer
 
-    def __init__(
-            self, graph, max_battery:int=500, cover_reward=10, move_reward=-1, crash_reward=-500):
+    def __init__(self, graph, max_battery:int=500, 
+                 cover_reward=10, move_reward=-1, crash_reward=-500):
+        
         self.__version__ = "0.0.1"
         """
-        cover_reward: the constant value multiplied by the cell of the relevance map covered. This reward is only used 
-            the first time the drone visit the cell.
-        move_reward: the reward of moving the drone. Should be negative to enforce short paths.
-        crash_reward: the reward for crashing, i.e., when the agent hit an obstacle, the ground (out of battery), or map borders.
-        action_prob: the probability that the drone performs the action that selects. If lower than one, serves as a random simulator 
-            of things that can go wrong.
+        Parameters:
+        ----------
+        graph: prebuilded graph. Graph class from igraph  
+        
+        max_battery: maximal lenght can be covered in one tour
+        
+        cover_reward: a positive coefficient associated to segment covering
+        move_reward:  a negative coefficient associated to every motion 
+        crash_reward: big negative constant, reward when battery is over
         """
+        
         self.graph = graph
         self.max_battery = max_battery
         self.cover_reward = cover_reward
@@ -52,62 +67,107 @@ class GraphEnv(gym.Env):
         
 
     def reset(self):
-   
-        base_node = len(self.graph.vs)-1
-        self.graph.vs[base_node]['here'] = True
+        """
+        Environment initialization / reset
+
+        Returns initial state
+        """
+        base_node = len(self.graph.vs)-1 #Starting on the base station
+        #TODO: Change this to find a base by features on any graph 
+        #TODO: Choose between various bases
         
-        self.battery = self.max_battery
-        print("battery level:", self.battery)
-        self.state = self._get_state(base_node)
-        self.graph.es["covered"] = False
-        self.n_segments_covered = 0
-        self.total_traveled_distance = 0
-        self.coverage_distance = 0
-        return base_node, self.state
+        self.graph.vs[base_node]['here'] = True #Position for monitoring (Used for visualization only)
+        
+        self.battery = self.max_battery #Initialize with max battery level
+
+        self.state = self._get_state(base_node) #Initial state
+        
+        self.graph.es["covered"] = False #All edges are not covered
+        
+        # Metrics initialization:
+        self.n_segments_covered = 0 #Covered segments counter
+        self.total_traveled_distance = 0 #Traveled distance counter
+        self.coverage_distance = 0 #Covered distance counter
+        
+        #TODO: Node is included to the state. Remove it from here
+        return self.state
 
     
     
     def step(self, action, node):
+        """
+        Every step apply an action and get the reward
+        
+        Parameters
+        ----------
+        action : chosen action
+        node : the current node on a graph
 
+        Returns
+        -------
+        new_node : node after applying the given action
+        reward : Reward received
+        done : Episode Termination Flag
         
-        action_space = self._get_actions(node)
+        """
+        action_space = self._get_actions(node) #Depends on number of edges of every node
+        #TODO: avoid counting edges two times 
         
-#        err_msg = "%r (%s) invalid" % (action, type(action))
-#        assert action_space.contains(action), err_msg   
+        new_node = action_space[action] #Change a node appling a given action
+        self.state = self._get_state(new_node) #State change 
         
-        new_node = action_space[action]
+        #The weight of chosen edge is equal to traveled distance in this step:
         traveled_distance = self.graph.es.select(_within=[node,new_node])["weight"][0] 
-        self.battery -= traveled_distance
-        self.state = self._get_state(new_node)
         
-        reward = self._get_reward(node, new_node)
+        self.battery -= traveled_distance #Battery consumption
+
+        reward = self._get_reward(node, new_node) #Compute the reward 
         
+        #Change position for monitoring
         self.graph.vs[node]['here'] = False
         self.graph.vs[new_node]['here'] = True
                
         
+        #Episode Termination:
+        #If the battery is over
+        #If all segments are covered
         if bool(self.battery<0) or sum(self.graph.es["is_segment"])==0:
             done = True
         else: done = False
-            
+        
+        
+        #If in this step we covered a segment:
         if self.graph.es.select(_within=[node, new_node])["is_segment"][0] == True:
-            self.n_segments_covered += 1
-            self.coverage_distance += traveled_distance
-            self.graph.es.select(_within=[node, new_node])["is_segment"] = False
+            self.n_segments_covered += 1 #Covered segments counter
+            self.coverage_distance += traveled_distance #Covered distance counter
+            #The edge is not a segment anymore (not interesting to cover):
+            self.graph.es.select(_within=[node, new_node])["is_segment"] = False 
         
+        #Recharging on the base:
         if self.graph.vs[new_node]['base'] == True:
-            print("recharging")
-            self.battery = self.max_battery
+            self.battery = self.max_battery 
         
         
-        self.total_traveled_distance += traveled_distance
-        self.graph.es.select(_within=[node, new_node])["covered"] = True
+        self.total_traveled_distance += traveled_distance #Traveled distance counter
+        self.graph.es.select(_within=[node, new_node])["covered"] = True #Edge is covered
+        #TODO: Change covered/not covered by covering X times 
         
-        return new_node, self.state, reward, done, {}
+        return self.state, reward, done, {}
         
     
     def render(self, mode='rgb_array', show=True):
+        """
+        Visualization. See rendering.py to get the details
+        Doesn't work on Linux
 
+        Parameters:
+        ----------
+        mode : The default is 'rgb_array' to show a sequence of images in the 
+                viewer window. Not change this
+                
+        show: showing or not the viewer. Set False to train faster
+        """
+        
         screen_width = 640
         screen_height = 640  
 
@@ -131,11 +191,26 @@ class GraphEnv(gym.Env):
         return self.viewer.render(return_rgb_array=mode == 'rgb_array')
         
     def close(self):
+        """
+        Important to close the viewer
+        """
         if self.viewer:
             self.viewer.close()
             self.viewer = None  
     
+    
     def _get_actions(self, node): 
+        """
+        Parameters
+        ----------
+        node : the current node on a graph
+
+        Returns
+        -------
+        action_dict : action distionary depending of the number
+        of edges of every node
+
+        """
         connected_nodes = np.asarray(np.where(np.asarray(self.graph.get_adjacency()[node]) == 1))
         connected_nodes = connected_nodes.tolist()[0] 
         
@@ -147,23 +222,31 @@ class GraphEnv(gym.Env):
     
     
     def _get_state(self, node):
-#        x = self.graph.vs[node]['x']
-#        y = self.graph.vs[node]['y']
-#        base = self.graph.vs[node]['base']
+        """
+
+        Parameters
+        ----------
+        node : the current node on a graph
+
+        Returns
+        -------
+        A tuple state = [node, inciden edges features, battry level] 
+        """
         
         # Edge features
         connected_nodes = np.asarray(np.where(np.asarray(self.graph.get_adjacency()[node]) == 1))
         connected_nodes = connected_nodes.tolist()[0]
-#        weight = np.zeros(len(connected_nodes))
-        is_segment = np.zeros(len(connected_nodes))
-#        to_base = np.zeros(len(connected_nodes))
-        covered = np.zeros(len(connected_nodes))
 
+        # Initialize edges features with zeroes 
+        is_segment = np.zeros(len(connected_nodes))
+        covered = np.zeros(len(connected_nodes))
+        
+        # For all edges inciden with a given node
         for i in range(len(connected_nodes)):
-#            weight[i] = self.graph.es.select(_within=[node,connected_nodes[i]])["weight"][0]
+            #Is the edge an uncovered segment:
             is_segment[i] = self.graph.es.select(_within=[node,connected_nodes[i]])["is_segment"][0]
+            #Is the edge already covered or not
             covered[i] = self.graph.es.select(_within=[node,connected_nodes[i]])["covered"][0]
-#            to_base[i] = self.graph.es.select(_within=[n,connected_nodes[i]])["is_segment"][0]
 
         charged = self._battery_level()
 
@@ -171,23 +254,42 @@ class GraphEnv(gym.Env):
     
     
     def _get_reward(self, node, new_node):  
+        """
+        The reward function
         
-        covered_segment = self.graph.es.select(_within=[node,new_node])["is_segment"][0]
-        traveled_distance = self.graph.es.select(_within=[node,new_node])["weight"][0]
-        overlapping = self.graph.es.select(_within=[node,new_node])["covered"][0]
-        crash_free = self.battery>5
+        Parameters
+        ----------
+        node : current node
+        new_node : a node after applying a chosen action
         
+        Returns the reward value
+        """
+        current_edge = self.graph.es.select(_within=[node,new_node])
+        
+        traveled_distance = current_edge["weight"][0]
+        covered_segment = current_edge["is_segment"][0]
+        overlapping = current_edge["covered"][0]
+        
+        #TODO: Compute how much battery required to come back to the base
+        crash_free = self.battery>50 #Enought battery
+        
+        #Covering a new segment:
         r_cov = crash_free * traveled_distance * self.cover_reward * covered_segment
+        #Motivate to de the shortest. Penalize every movement:
         r_move =  crash_free * traveled_distance * self.move_reward
+        #Covering the same edge twice:
+        #TODO: Count every repetition
         r_overlapping =  crash_free * traveled_distance * self.move_reward * overlapping
-        
+        #Battery is over:
         r_crash = (not crash_free) * self.crash_reward
-        
-        
+
         return r_cov + r_move + r_crash + r_overlapping
     
     
-    def _battery_level(self):       
+    def _battery_level(self):   
+        """
+        Battery discretisation by levels
+        """
         if self.battery<0:
             return -1
         if self.battery < self.max_battery/5:
@@ -203,6 +305,12 @@ class GraphEnv(gym.Env):
        
        
     def _get_image(self):
+        """
+        Paint the graph
+        ----------
+        Returns rgb image
+        """
+        
         image = "tmp.png"
         color_dict_vs = {True: "green", False: "black"}
         color_dict_es = {True: "red", False: "black"}

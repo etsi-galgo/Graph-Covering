@@ -15,6 +15,7 @@ from scipy.spatial import Delaunay
 
 class Graph():
     
+    #TODO: Rewrite this class to avoid repetitions and get a clear definition of a custom graph object 
     def __init__(self, lines = pd.Series([]), base=[0,25], l = 50, min_seg = 2, max_seg = 5, n = 5 , max_hight = 50):
         
     
@@ -88,7 +89,10 @@ class Graph():
         
             
     
-    def _segment_to_graph(self):      
+    def _segment_to_graph(self): 
+        """
+        Given a set aof segments returns a graph from igraph
+        """
         self.n_vertices, self.edge, x, y = self._graph_params()
         g = ig.Graph(self.n_vertices, self.edge)
         g.vs['x'] = x
@@ -96,8 +100,7 @@ class Graph():
         g.vs['base'] = False
         g.vs['here'] = False
         g.es['is_segment'] = True
-        
-        
+
         return g
     
     def _add_base(self, g, base):
@@ -193,7 +196,6 @@ class Graph():
         g_delaunay.es['covered'] = False
         
         self.connected_graph =  g_delaunay
-        return g_delaunay
     
     def n_segments(self):
         return sum(self.connected_graph.es["is_segment"])

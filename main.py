@@ -6,172 +6,128 @@ Created on Fri Jan 12 14:34:53 2024
 """
 
 from utils.graph import Graph
+from utils import results
 from envs.graph_env import GraphEnv
 import qlearn
 from sys import platform
-import json
-import pandas as pd
 
-def main(total_episodes, env_iter, show = False):
-    g = Graph()
+
+
+
+def main(mode, env_iter, q_table={}, g = Graph(), total_episodes=1,  show = False):
+    """
+    Parameters
+    ----------
+    mode : "train" or "test" mode
+    env_iter : Number of steps permited every episode
+    q_table : dictionary. Introduce if continue with a previosly saved Q-table. 
+    The default is {} if starting a new training.
+    g : a custom Graph object. Introduce if continue with a previosly saved graph. 
+        The default is Graph() means create a new graph.
+    total_episodes : How many times reset the environment
+    show : Visualization. 
+
+    Returns
+    -------
+    g: graph
+    ql.q: Q-table
+
+    """
+    if mode=="train":
+        eps=0.9
+        epsilon_discount = 0.9986
+    elif mode=="test":
+        eps=0
+    else:
+        print("Unknown mode")
+        return
+        
+    ql = qlearn.QLearn(actions = 0, alpha=0.2, gamma=0.8, epsilon=eps)
+    ql.q = q_table
     
-    ql = qlearn.QLearn(actions = 0, alpha=0.2, gamma=0.8, epsilon=0.9)
-    epsilon_discount = 0.9986
+    
     highest_reward = 0
-        
     for episode in range(total_episodes):
-        graph_path = g.build_delaunay()
-        env_ = GraphEnv(graph_path)
-        s_N = g.n_segments()
-        s_length = g.segment_length()
+        print("Episode ", episode, " of ", total_episodes)
         
-        done = False
+        #TODO: put this out of cycle. Careful with segments:
+        g.build_delaunay() #Recover a graph
+        
+        env_ = GraphEnv(g.connected_graph) #Reset the environment
+        observation = env_.reset()
+        
+        #TODO: put this out of cycle:
+        s_N = g.n_segments() #Count number of segments
+        s_length = g.segment_length() #Count total lenght to cover
+        
+        #Initialize counters:
+        done = False 
         cumulated_reward = 0
         
-        node, observation = env_.reset()
-        
+        #Every episode trust more to the model: 
         if ql.epsilon > 0.05:
             ql.epsilon *= epsilon_discount
             
+        #State as a string for the q-table dictionary    
         state = ''.join(map(str, observation))
-            
-            
 
-        print("Episode ", episode, " of ", total_episodes)
-        
-        for i in range(env_iter):
+        #Apply env_iter steps or until done:
+        for i in range(env_iter): 
             if show:
-                env_.render()
-            n_actions = graph_path.degree(node)
-
-            # Pick an action based on the current state
+                env_.render() #Visualization
+            
+            #Pick an action based on the current state:
+            node = observation[0]
+            n_actions = g.connected_graph.degree(node)
             ql.actions = range(n_actions)
-            action, q = ql.chooseAction(state, return_q = True)
+            action = ql.chooseAction(state)
             
-            # Execute the action and get feedback                    
-            node, observation, reward, done, _ = env_.step(action, node)
-            
+            #Execute the action and get feedback:                    
+            observation, reward, done, _ = env_.step(action, node)
             cumulated_reward += reward
+            
             
             if highest_reward < cumulated_reward:
                 highest_reward = cumulated_reward
                 
-            nextState = ''.join(map(str, observation))    
+            nextState = ''.join(map(str, observation))   
+            
+            #Update the Q-table:
             ql.learn(state, action, reward, nextState)
    
             if not(done):
                 state = nextState
             else:
+                #Done if all segments are covered or the battery is over
                 break
-        print(i)
+            
                 
         print("Cumulated reward:", cumulated_reward)
-        print("Traveled distance:", env_.total_traveled_distance)
-        print("Total length:",  g.total_length())
         print("Segments covered:", env_.n_segments_covered, "of", s_N)
         print("Length covered:", env_.coverage_distance, "of",  s_length)
         
-        
         env_.close()
+        
+    print("Highest reward:", highest_reward)
     return g, ql.q
 
-def test(q_table, graph, env_iter, show = True):
-    
-    ql = qlearn.QLearn(actions = 0, alpha=0.2, gamma=0.8, epsilon=0)
-    ql.q = q_table
-    
-    highest_reward = 0
-        
-    graph_path = graph.build_delaunay()
-    env_ = GraphEnv(graph_path)
-    s_N = graph.n_segments()
-    s_length = graph.segment_length()
-        
-    done = False
-    cumulated_reward = 0
-        
-    node, observation = env_.reset()
-        
-            
-    state = ''.join(map(str, observation))
-            
-        
-    for i in range(env_iter):
-        if show:
-            env_.render()
-        n_actions = graph_path.degree(node)
-
-        # Pick an action based on the current state
-        ql.actions = range(n_actions)
-        action = ql.chooseAction(state)
-        print(action)
-        # Execute the action and get feedback                    
-        node, observation, reward, done, _ = env_.step(action, node)
-        cumulated_reward += reward
-            
-        if highest_reward < cumulated_reward:
-            highest_reward = cumulated_reward
-                
-        nextState = ''.join(map(str, observation))    
-        ql.learn(state, action, reward, nextState)
-   
-        if not(done):
-            state = nextState
-        else:
-            break
-        
-    print(i)        
-    print("Cumulated reward:", cumulated_reward)
-    print("Traveled distance:", env_.total_traveled_distance)
-    print("Total length:",  graph.total_length())
-    print("Segments covered:", env_.n_segments_covered, "of", s_N)
-    print("Length covered:", env_.coverage_distance, "of",  s_length)     
-        
-    env_.close()
-    
-def save_q_table_to_json(q_table, filename = "sample.json"):
-    q_table2 = dict((str(k), val) for k, val in q_table.items())
-    with open(filename, "w") as outfile: 
-        json.dump(q_table2, outfile)
-        
-def get_q_table_from_json(filename = "sample.json"):
-    json_ex = json.load(open("sample.json"))
-    return dict((eval(k), val) for k, val in json_ex.items())
-
-def save_graph(graph):
-    graph.lines.to_csv ("lines.csv", index = False, header=True)
-    base_dic = {'base': graph.base}
-    with open("base.json", "w") as outfile: 
-        json.dump(base_dic, outfile)   
-        
-def open_graph(base_file = "base.json", line_file = "lines.csv"):
-    base_dic = json.load(open("base.json"))
-    base = base_dic['base']
-    lines = pd.read_csv("lines.csv")
-    graph = Graph(lines, base)
-    return graph
-     
-    
     
 if __name__ == "__main__":
-
-    total_episodes = 500
-    env_iter = 200
+    mode="train"
     
     if platform == "win32": show = True
     else: show = False
-    # or vars(opt)
-#    graph, q_table = main(total_episodes, env_iter, show)
-#    save_q_table_to_json(q_table)
-#    save_graph(graph)
     
-    # test
-    # recover Q-table
-    q_table = get_q_table_from_json()
-    # recover graph
-    graph = open_graph()
-    
-    test(q_table, graph, env_iter)
+    if mode=="train": #Training the model
+        graph, q_table = main(mode, env_iter=100, total_episodes=5,  show = show)
+        results.save_q_table_to_json(q_table) #Save Q-table
+        results.save_graph(graph) #Save graph
+        
+    if mode=="test": #Testing the result 
+        q_table = results.get_q_table_from_json()  #Recover Q-table
+        graph = results.open_graph()  #Recover graph
+        main(mode, env_iter=200, q_table = q_table, g = graph, show = show)
+
     
     
     
