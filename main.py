@@ -119,9 +119,8 @@ if __name__ == "__main__":
     else: show = False
     
     if mode=="train": #Training the model
-        graph, q_table = main(mode, env_iter=200, total_episodes=1000,  show = show)
-        results.save_q_table_to_json(q_table) #Save Q-table
-        results.save_graph(graph) #Save graph
+        graph, q_table = main(mode, env_iter=200, total_episodes=5,  show = show)
+        results.save(q_table, graph) #Save
         
     if mode=="test": #Testing the result 
         q_table = results.get_q_table_from_json()  #Recover Q-table
