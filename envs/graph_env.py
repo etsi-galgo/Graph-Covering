@@ -41,7 +41,7 @@ class GraphEnv(gym.Env):
     #TODO: Change covered/not covered by covering X times: binary to integer
 
     def __init__(self, graph, max_battery:int=500, 
-                 cover_reward=10, move_reward=-1, crash_reward=-500):
+                 cover_reward=15, move_reward=-1, crash_reward=-1000):
         
         self.__version__ = "0.0.1"
         """
@@ -82,7 +82,7 @@ class GraphEnv(gym.Env):
 
         self.state = self._get_state(base_node) #Initial state
         
-        self.graph.es["covered"] = False #All edges are not covered
+        self.graph.es["covered"] = 0 #All edges are not covered
         
         # Metrics initialization:
         self.n_segments_covered = 0 #Covered segments counter
@@ -149,7 +149,10 @@ class GraphEnv(gym.Env):
         
         
         self.total_traveled_distance += traveled_distance #Traveled distance counter
-        self.graph.es.select(_within=[node, new_node])["covered"] = True #Edge is covered
+        if self.graph.es.select(_within=[node, new_node])["covered"][0]==0:
+            self.graph.es.select(_within=[node, new_node])["covered"] = 1 #Edge is covered
+        elif self.graph.es.select(_within=[node, new_node])["covered"][0]==1:
+            self.graph.es.select(_within=[node, new_node])["covered"] = 2 #Edge is covered twice
         #TODO: Change covered/not covered by covering X times 
         
         return self.state, reward, done, {}
@@ -271,19 +274,17 @@ class GraphEnv(gym.Env):
         overlapping = current_edge["covered"][0]
         
         #TODO: Compute how much battery required to come back to the base
-        crash_free = self.battery>50 #Enought battery
+        crash_free = self.battery>100 #Enought battery
         
         #Covering a new segment:
         r_cov = crash_free * traveled_distance * self.cover_reward * covered_segment
         #Motivate to de the shortest. Penalize every movement:
-        r_move =  crash_free * traveled_distance * self.move_reward
-        #Covering the same edge twice:
-        #TODO: Count every repetition
-        r_overlapping =  crash_free * traveled_distance * self.move_reward * overlapping
+        r_move =  crash_free * traveled_distance * self.move_reward * (overlapping+1)
+
         #Battery is over:
         r_crash = (not crash_free) * self.crash_reward
 
-        return r_cov + r_move + r_crash + r_overlapping
+        return r_cov + r_move + r_crash
     
     
     def _battery_level(self):   
@@ -313,7 +314,7 @@ class GraphEnv(gym.Env):
         
         image = "tmp.png"
         color_dict_vs = {True: "green", False: "black"}
-        color_dict_es = {True: "red", False: "black"}
+        color_dict_es = {2: "red", 1: "red4", 0:"black"}
         edge_width = [2 + 7 * int(is_segment) for is_segment in self.graph.es["is_segment"]]
         vertex_color = [color_dict_vs[here] for here in self.graph.vs["here"]]
         edge_color = [color_dict_es[covered] for covered in self.graph.es["covered"]]

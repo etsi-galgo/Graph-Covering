@@ -193,7 +193,7 @@ class Graph():
         
         self._weigh_edges(g_delaunay)
         self._add_segments(g_delaunay, self.edge)
-        g_delaunay.es['covered'] = False
+        g_delaunay.es['covered'] = 0
         
         self.connected_graph =  g_delaunay
     
@@ -229,7 +229,7 @@ class Graph():
         Plotting the graph with matplotlib
         """  
         color_dict_vs = {True: "green", False: "black"}
-        color_dict_es = {True: "red", False: "black"}
+        color_dict_es = {0: "red", 1: "red4", 2:"black"}
         
         edge_width = [2 + 10 * int(is_segment) for is_segment in g.es["is_segment"]]
         vertex_color = [color_dict_vs[here] for here in g.vs["here"]]

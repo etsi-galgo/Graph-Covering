@@ -14,7 +14,7 @@ from sys import platform
 
 
 
-def main(mode, env_iter, q_table={}, g = Graph(), total_episodes=1,  show = False):
+def main(mode, repetition, total, env_iter, q_table={}, g = Graph(), total_episodes=1,  show = False):
     """
     Parameters
     ----------
@@ -48,7 +48,7 @@ def main(mode, env_iter, q_table={}, g = Graph(), total_episodes=1,  show = Fals
     
     highest_reward = 0
     for episode in range(total_episodes):
-        print("Episode ", episode, " of ", total_episodes)
+        print("Episode ", episode + repetition*total_episodes, " of ", total*total_episodes,"(" , episode+1, " of ", total_episodes,")")
         
         #TODO: put this out of cycle. Careful with segments:
         g.build_delaunay() #Recover a graph
@@ -113,14 +113,19 @@ def main(mode, env_iter, q_table={}, g = Graph(), total_episodes=1,  show = Fals
 
     
 if __name__ == "__main__":
-    mode="test"
+    mode="train"
     
     if platform == "win32": show = True
     else: show = False
     
     if mode=="train": #Training the model
-        graph, q_table = main(mode, env_iter=200, total_episodes=5,  show = show)
+        n=10
+        graph, q_table = main(mode, 0, n, env_iter=200, total_episodes=200,  show = show)
+        for i in range(n-1):
+            graph, q_table = main(mode, i+1, n, env_iter=200, g = graph, q_table = q_table, total_episodes=200,  show = show)
+            
         results.save_results(q_table, graph) #Save
+        
         
     if mode=="test": #Testing the result 
         q_table, graph = results.open_results("exp1")
