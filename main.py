@@ -113,18 +113,17 @@ def main(mode, env_iter, q_table={}, g = Graph(), total_episodes=1,  show = Fals
 
     
 if __name__ == "__main__":
-    mode="train"
+    mode="test"
     
     if platform == "win32": show = True
     else: show = False
     
     if mode=="train": #Training the model
         graph, q_table = main(mode, env_iter=200, total_episodes=5,  show = show)
-        results.save(q_table, graph) #Save
+        results.save_results(q_table, graph) #Save
         
     if mode=="test": #Testing the result 
-        q_table = results.get_q_table_from_json()  #Recover Q-table
-        graph = results.open_graph()  #Recover graph
+        q_table, graph = results.open_results("exp1")
         main(mode, env_iter=200, q_table = q_table, g = graph, show = show)
 
     

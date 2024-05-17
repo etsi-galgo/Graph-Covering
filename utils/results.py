@@ -12,7 +12,7 @@ from pathlib import Path
 
 #TODO: Change paths
 
-def save(q_table, graph):
+def save_results(q_table, graph):
     project = os.path.join(Path.cwd(), 'runs', 'train')
     name='exp'
     log_dir = get_path(project, name)
@@ -24,7 +24,18 @@ def save(q_table, graph):
     save_q_table_to_json(q_table, table_file)
     save_graph(graph, base_file, line_file)
     
+
+def open_results(exp):
+    project = os.path.join(Path.cwd(), 'runs', 'train')
+    log_dir = os.path.join(project, exp)
+    table_file = os.path.join(log_dir, "q_table.json")    
+    base_file = os.path.join(log_dir, "base.json")
+    line_file = os.path.join(log_dir, "lines.csv")
+    q_table = get_q_table_from_json(table_file)
+    graph = open_graph(base_file, line_file)
+    return q_table, graph
     
+     
 
 def get_path(project, name, exist_ok=False):
     exp_n = get_exp_n(project, name=name)
@@ -50,8 +61,8 @@ def save_q_table_to_json(q_table, filename):
     with open(filename, "w") as outfile: 
         json.dump(q_table2, outfile)
         
-def get_q_table_from_json(filename = "sample.json"):
-    json_ex = json.load(open("sample.json"))
+def get_q_table_from_json(filename):
+    json_ex = json.load(open(filename))
     return dict((eval(k), val) for k, val in json_ex.items())
 
 def save_graph(graph, base_file, line_file):
@@ -60,9 +71,9 @@ def save_graph(graph, base_file, line_file):
     with open(base_file, "w") as outfile: 
         json.dump(base_dic, outfile)   
         
-def open_graph(base_file = "base.json", line_file = "lines.csv"):
-    base_dic = json.load(open("base.json"))
+def open_graph(base_file, line_file):
+    base_dic = json.load(open(base_file))
     base = base_dic['base']
-    lines = pd.read_csv("lines.csv")
+    lines = pd.read_csv(line_file)
     graph = Graph(lines, base)
     return graph
