@@ -10,11 +10,11 @@ from utils import results
 from envs.graph_env import GraphEnv
 import qlearn
 from sys import platform
+import timeit
 
 
 
-
-def main(mode, repetition, total, env_iter, q_table={}, g = Graph(), total_episodes=1,  show = False):
+def main(mode, repetition, total, env_iter, q_table={}, g = Graph(), total_episodes=1,  show = False, alpha =0.2, gamma=0.8, epsilon=0.9):
     """
     Parameters
     ----------
@@ -34,7 +34,7 @@ def main(mode, repetition, total, env_iter, q_table={}, g = Graph(), total_episo
 
     """
     if mode=="train":
-        eps=0.9
+        eps=epsilon
         epsilon_discount = 0.9986
     elif mode=="test":
         eps=0
@@ -42,14 +42,15 @@ def main(mode, repetition, total, env_iter, q_table={}, g = Graph(), total_episo
         print("Unknown mode")
         return
         
-    ql = qlearn.QLearn(actions = 0, alpha=0.2, gamma=0.8, epsilon=eps)
+    ql = qlearn.QLearn(actions = 0, alpha=alpha, gamma=gamma, epsilon=eps)
     ql.q = q_table
     
     
     highest_reward = 0
+    execution_times=[]
     for episode in range(total_episodes):
-        print("Episode ", episode + repetition*total_episodes, " of ", total*total_episodes,"(" , episode+1, " of ", total_episodes,")")
-        
+        # print("Episode ", episode + repetition*total_episodes, " of ", total*total_episodes,"(" , episode+1, " of ", total_episodes,")")
+        # start = timeit.default_timer()
         #TODO: put this out of cycle. Careful with segments:
         g.build_delaunay() #Recover a graph
         
@@ -102,34 +103,40 @@ def main(mode, repetition, total, env_iter, q_table={}, g = Graph(), total_episo
                 break
             
                 
-        print("Cumulated reward:", cumulated_reward)
-        print("Segments covered:", env_.n_segments_covered, "of", s_N)
-        print("Length covered:", env_.coverage_distance, "of",  s_length)
+        # print("Cumulated reward:", cumulated_reward)
+        # print("Segments covered:", env_.n_segments_covered, "of", s_N)
+        # print("Length covered:", env_.coverage_distance, "of",  s_length)
+        # stop = timeit.default_timer()
+        # execution_time = stop-start
+        # print("Episode_time: ", execution_time)
+        # execution_times.append(execution_time)
+        # env_.close()
         
-        env_.close()
-        
-    print("Highest reward:", highest_reward)
-    return g, ql.q
+    # print("Highest reward:", highest_reward)
+    # print("Mean execution time per episode: ", sum(execution_times)/len(execution_times))
+    return g, ql.q, cumulated_reward, env_.n_segments_covered/s_N, env_.coverage_distance/s_length
 
+
+
+
+# if __name__ == "__main__":
+#     mode="train"
     
-if __name__ == "__main__":
-    mode="train"
+#     if platform == "win32": show = True
+#     else: show = False
     
-    if platform == "win32": show = True
-    else: show = False
-    
-    if mode=="train": #Training the model
-        n=10
-        graph, q_table = main(mode, 0, n, env_iter=200, total_episodes=200,  show = show)
-        for i in range(n-1):
-            graph, q_table = main(mode, i+1, n, env_iter=200, g = graph, q_table = q_table, total_episodes=200,  show = show)
+#     if mode=="train": #Training the model
+#         n=10
+#         graph, q_table = main(mode, 0, n, env_iter=200, total_episodes=200,  show = show)
+#         for i in range(n-1):
+#             graph, q_table = main(mode, i+1, n, env_iter=200, g = graph, q_table = q_table, total_episodes=200,  show = show)
             
-        results.save_results(q_table, graph) #Save
+#         results.save_results(q_table, graph) #Save
         
         
-    if mode=="test": #Testing the result 
-        q_table, graph = results.open_results("exp1")
-        main(mode, env_iter=200, q_table = q_table, g = graph, show = show)
+#     if mode=="test": #Testing the result 
+#         q_table, graph = results.open_results("exp1")
+#         main(mode, env_iter=200, q_table = q_table, g = graph, show = show) 
 
     
     
