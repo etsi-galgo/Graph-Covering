@@ -25,7 +25,7 @@ def save_results(q_table, graph, cumulated_reward_dic={}, segments_covered_dic={
     segments_covered_file = os.path.join(log_dir, "segments_covered_dic.json")
     coverage_distance_file = os.path.join(log_dir, "coverage_distance_dic.json")
     
-    q_table = dict((str(k), val) for k, val in q_table.items())
+
     save_dict_to_json(q_table, table_file)
     save_graph(graph, base_file, line_file)
     
@@ -57,8 +57,9 @@ def get_path(project, name, exist_ok=False):
     
        
 def save_dict_to_json(value, filename):
+    str_keys_dic = dict((str(k), val) for k, val in value.items())
     with open(filename,'w') as outfile:  
-          json.dump(value, outfile)
+          json.dump(str_keys_dic, outfile)
     
     
 def get_exp_n(project, name='exp'):
