@@ -14,7 +14,8 @@ import timeit
 
 
 
-def main(mode, repetition, total, env_iter, q_table={}, g = Graph(), total_episodes=1,  show = False, alpha =0.2, gamma=0.8, epsilon=0.9):
+def main(mode, repetition, total, env_iter, q_table={}, g = Graph(), total_episodes=1,  show = False, 
+         alpha =0.2, gamma=0.8, epsilon=0.9, cover_reward=15, move_reward=-1, crash_reward=-1000):
     """
     Parameters
     ----------
@@ -54,7 +55,7 @@ def main(mode, repetition, total, env_iter, q_table={}, g = Graph(), total_episo
         #TODO: put this out of cycle. Careful with segments:
         g.build_delaunay() #Recover a graph
         
-        env_ = GraphEnv(g.connected_graph) #Reset the environment
+        env_ = GraphEnv(g.connected_graph, cover_reward=cover_reward, move_reward=move_reward, crash_reward=crash_reward) #Reset the environment
         observation = env_.reset()
         
         #TODO: put this out of cycle:
