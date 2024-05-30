@@ -41,7 +41,7 @@ class GraphEnv(gym.Env):
     #TODO: Change covered/not covered by covering X times: binary to integer
 
     def __init__(self, graph, max_battery:int=500, 
-                 cover_reward=15, move_reward=-1, crash_reward=-1000):
+                 cover_reward=0.015, move_reward=-0.001, crash_reward=-1):
         
         self.__version__ = "0.0.1"
         """
