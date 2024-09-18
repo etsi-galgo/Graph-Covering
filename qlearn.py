@@ -1,4 +1,5 @@
 import random
+import numpy as np
 
 class QLearn:
     def __init__(self, actions, epsilon, alpha, gamma):
@@ -9,7 +10,7 @@ class QLearn:
         self.actions = actions
 
     def getQ(self, state, action):
-        return self.q.get((state, action), 0.0)
+        return self.q.get((state, action), -np.inf)
 
     def learnQ(self, state, action, reward, value):
         '''
@@ -46,6 +47,6 @@ class QLearn:
             return action, q
         return action
 
-    def learn(self, state1, action1, reward, state2):
+    def learn(self, state1, action1, reward, state2): 
         maxqnew = max([self.getQ(state2, a) for a in self.actions])
         self.learnQ(state1, action1, reward, reward + self.gamma*maxqnew)

@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 #Argumentos funcion
 alpha_values = [0.01,0.05,0.1,0.15,0.2,0.3]
 gamma_values = [0.99,0.95,0.9,0.85,0.8]
-epsilon_values = [(1+i)*0.05 for i in range(0,19)]
+epsilon_values = [i/20 for i in range(1,19)]
 metrica = "coverage_distance_dic" # o "cumulated_reward_dic" o "segments_covered_dic"
 metrica = "cumulated_reward_dic"
 metrica = "segments_covered_dic"
@@ -60,7 +60,7 @@ def graph_2d(alpha_values,gamma_values,epsilon_values,metrica,fijar,valor_fijo):
     plt.show()
 
 #Lanzamos 
-graph_2d(alpha_values, gamma_values, epsilon_values, metrica, ["epsilon","gamma"], [0.4,0.8])
+graph_2d(alpha_values, gamma_values, epsilon_values, metrica, ["alpha","gamma"], [0.1,0.8])
 
 
 def graph_3d(alpha_values,gamma_values,epsilon_values,metrica,fijar,valor_fijo):
@@ -113,8 +113,8 @@ def graph_3d(alpha_values,gamma_values,epsilon_values,metrica,fijar,valor_fijo):
     plt.show()
 
 
-fijar = "alpha" 
-valor_fijo= 0.01 #cuidado, debe ser un valor de algun hiperparametro
+fijar = "epsilon" 
+valor_fijo= 0.20 #cuidado, debe ser un valor de algun hiperparametro
 #######
 
 graph_3d(alpha_values, gamma_values, epsilon_values, metrica, fijar, valor_fijo)

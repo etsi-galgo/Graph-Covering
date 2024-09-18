@@ -23,7 +23,7 @@ alpha_values = [0.01,0.05]
 gamma_values = [0.99,0.95]
 epsilon_values = [round((1+i)*0.05,2) for i in range(0,5)]
 
-#Guardamos los datos del estudio en los siguientes diccionarios
+# Guardamos los datos del estudio en los siguientes diccionarios
 cumulated_reward_dic={} #Diccionario (alpha,gamma,epsilon):comulated_reward
 segments_covered_dic={} #Diccionario (alpha,gamma,epsilon):segments_covered
 coverage_distance_dic={} #Diccionario (alpha,gamma,epsilon):coverage_distance

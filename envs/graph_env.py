@@ -146,6 +146,7 @@ class GraphEnv(gym.Env):
         #Recharging on the base:
         if self.graph.vs[new_node]['base'] == True:
             self.battery = self.max_battery 
+            print("recharge")
         
         
         self.total_traveled_distance += traveled_distance #Traveled distance counter
@@ -255,6 +256,10 @@ class GraphEnv(gym.Env):
 
         return node, is_segment, covered, charged
     
+    def _distance_to_the_base(self, node):
+        (self.graph.vs[node]['x']**2+self.graph.vs[node]['y']**2)
+        
+        
     
     def _get_reward(self, node, new_node):  
         """
@@ -273,14 +278,22 @@ class GraphEnv(gym.Env):
         covered_segment = current_edge["is_segment"][0]
         overlapping = current_edge["covered"][0]
         
+        
+        
         #TODO: Compute how much battery required to come back to the base
-        crash_free = self.battery>100 #Enought battery
+        crash_free = self.battery>1
+        #crash_free = self.battery>100 #Enought battery
         
         #Covering a new segment:
         r_cov = crash_free * traveled_distance * self.cover_reward * covered_segment
         #Motivate to de the shortest. Penalize every movement:
         r_move =  crash_free * traveled_distance * self.move_reward * (overlapping+1)
-
+        
+        discharged = self.battery<100
+        
+        
+        
+       # r_charge =  discharged * 
         #Battery is over:
         r_crash = (not crash_free) * self.crash_reward
 
