@@ -9,6 +9,7 @@ import gym
 import numpy as np
 import igraph as ig
 from envs import rendering
+from utils import graph_v01
 
 class GraphEnv(gym.Env):
 
@@ -41,7 +42,7 @@ class GraphEnv(gym.Env):
     #TODO: Change covered/not covered by covering X times: binary to integer
 
     def __init__(self, graph, max_battery:int=500, 
-                 cover_reward=0.015, move_reward=-0.001, crash_reward=-1):
+                 cover_reward=0.02, move_reward=-0.001, crash_reward=-1):
         
         self.__version__ = "0.0.1"
         """
@@ -88,6 +89,7 @@ class GraphEnv(gym.Env):
         self.n_segments_covered = 0 #Covered segments counter
         self.total_traveled_distance = 0 #Traveled distance counter
         self.coverage_distance = 0 #Covered distance counter
+        self.n_segments = sum(self.graph.es["is_segment"]) #Number of segments to cover
         
         #TODO: Node is included to the state. Remove it from here
         return self.state
@@ -272,32 +274,43 @@ class GraphEnv(gym.Env):
         
         Returns the reward value
         """
-        current_edge = self.graph.es.select(_within=[node,new_node])
-        
+        current_edge = self.graph.es.select(_within=[node, new_node])
         traveled_distance = current_edge["weight"][0]
         covered_segment = current_edge["is_segment"][0]
         overlapping = current_edge["covered"][0]
         
+        # Penalize for low battery
+        discharged = self.battery < 100        
+        shortest_path = graph_v01.shortest_path(self.graph, new_node)
+        longest_path = 142  # Diagonal
+        relative_path = shortest_path / longest_path
         
+        segments_left = sum(self.graph.es["is_segment"])
+        part_left = segments_left / self.n_segments 
         
-        #TODO: Compute how much battery required to come back to the base
-        crash_free = self.battery>1
-        #crash_free = self.battery>100 #Enought battery
+        crash_free = self.battery > shortest_path
         
-        #Covering a new segment:
-        r_cov = crash_free * traveled_distance * self.cover_reward * covered_segment
-        #Motivate to de the shortest. Penalize every movement:
-        r_move =  crash_free * traveled_distance * self.move_reward * (overlapping+1)
+        # Larger reward for covering new segments, not dependent on distance:
+        r_cov = self.cover_reward * covered_segment + (self.n_segments - part_left) * covered_segment * 2
         
-        discharged = self.battery<100
+        # Motivate movement toward uncovered segments but penalize redundant movement:
+        if overlapping == 0:  # Uncovered segment
+            r_move = traveled_distance * self.move_reward
+        else:  # Already covered segment
+            r_move = traveled_distance * self.move_reward * 2  # Heavier penalty for redundant moves
         
+        # If everything is covered, give a large reward:
+        if segments_left == 0:
+            return 10
         
+        # If battery is not enough to make it back to base, penalize heavily:
+        if not crash_free:
+            return -5  # Stronger penalty for battery depletion
         
-       # r_charge =  discharged * 
-        #Battery is over:
-        r_crash = (not crash_free) * self.crash_reward
-
-        return r_cov + r_move + r_crash
+        # Add more penalty for low battery levels:
+        battery_penalty = -0.2 * discharged * relative_path
+        
+        return r_cov + r_move + battery_penalty
     
     
     def _battery_level(self):   

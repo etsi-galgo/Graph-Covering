@@ -20,7 +20,7 @@ def parse_opt():
     # Mode and general settings
     parser.add_argument('--mode', type=str, default='train', choices=['train','train_more', 'test'], help="Mode: 'train' or 'test'")
     parser.add_argument('--env-iter', type=int, default=200, help="Number of iterations allowed per episode")
-    parser.add_argument('--total-episodes', type=int, default=100, help="Total number of episodes")
+    parser.add_argument('--total-episodes', type=int, default=5000, help="Total number of episodes")
     parser.add_argument('--alpha', type=float, default=0.3, help="Learning rate for Q-learning")
     parser.add_argument('--gamma', type=float, default=0.8, help="Discount factor for Q-learning")
     parser.add_argument('--epsilon', type=float, default=0, help="Exploration rate (epsilon) for Q-learning")

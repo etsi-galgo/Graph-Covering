@@ -42,7 +42,7 @@ class MyGraph:
         else:
             self.vertices = vertices
             self.segments_on_parallel_lines_graph()
-            
+            self.add_base(base)
 
     def vertices_on_lines(self, width, height, n_lines, max_segs_per_line):
         """
@@ -239,6 +239,7 @@ def shortest_path(graph, node):
     path_edges = graph.get_shortest_paths(node, to=base_idx, weights=graph.es['weight'], output='epath')[0]
     total_weight = sum(graph.es[edge]['weight'] for edge in path_edges)
     print("Total weight of the shortest path:", total_weight)
+    return total_weight
     
 def total_length(graph):
     """    
