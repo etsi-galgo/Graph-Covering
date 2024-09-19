@@ -13,7 +13,7 @@ from scipy.spatial import Delaunay
 import matplotlib.pyplot as plt
 
 class MyGraph:
-    def __init__(self, given_graph=None, width=0, height=0, n_lines=0, max_segs_per_line=0, base=[0,0]):
+    def __init__(self, vertices=None, base=[0,0], width=0, height=0, n_lines=0, max_segs_per_line=0):
         """
         Initialize the MyGraph instance with a map of the segments located on parrallel lines.
         
@@ -33,13 +33,16 @@ class MyGraph:
         
         self.vertices = np.empty((0, 2))
         self.segments = np.empty((0, 2))
+        self.segment_graph = ig.Graph(directed=False)
         
-        if given_graph is None:
-            self.segment_graph = ig.Graph(directed=False)
-            self.segments_on_parallel_lines_graph(width, height, n_lines, max_segs_per_line)
+        if vertices is None:
+            self.vertices_on_lines(width, height, n_lines, max_segs_per_line)
+            self.segments_on_parallel_lines_graph()
             self.add_base(base)
         else:
-            self.segment_graph = given_graph
+            self.vertices = vertices
+            self.segments_on_parallel_lines_graph()
+            
 
     def vertices_on_lines(self, width, height, n_lines, max_segs_per_line):
         """
@@ -72,7 +75,7 @@ class MyGraph:
             #array of edges that represent segments: [[v1,v2], [v3,v4], ...]
             self.segments[i] = [int(i * 2), int(i * 2 + 1)]
 
-    def segments_on_parallel_lines_graph(self, width, height, n_lines, max_segs_per_line):
+    def segments_on_parallel_lines_graph(self):
         """
         Create a graph with vertices on parallel lines and add it to the segment_graph.
         
@@ -82,7 +85,7 @@ class MyGraph:
         - n_lines: Number of parallel lines.
         - max_segs_per_line: Maximum segments per line.
         """
-        self.vertices_on_lines(width, height, n_lines, max_segs_per_line)
+       
         self.segment_edges()
         self.segment_graph.add_vertices(self.vertices.shape[0])
         self.segment_graph.add_edges(self.segments.tolist())
