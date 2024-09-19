@@ -19,6 +19,7 @@ def parse_opt():
     
     # Mode and general settings
     parser.add_argument('--mode', type=str, default='train', choices=['train','train_more', 'test'], help="Mode: 'train' or 'test'")
+    parser.add_argument('--experiment', type=str, default='exp1', help="Experiment file name")
     parser.add_argument('--env-iter', type=int, default=200, help="Number of iterations allowed per episode")
     parser.add_argument('--total-episodes', type=int, default=5000, help="Total number of episodes")
     parser.add_argument('--alpha', type=float, default=0.3, help="Learning rate for Q-learning")
@@ -26,6 +27,8 @@ def parse_opt():
     parser.add_argument('--epsilon', type=float, default=0, help="Exploration rate (epsilon) for Q-learning")
     parser.add_argument('--epsilon-discount', type=float, default=1, help="Discount for epsilon during the training")
     parser.add_argument('--show', action='store_true', help="Visualize the environment during execution")
+
+    
     
     # Graph settings
     parser.add_argument('--width', type=int, default=100, help="Graph width")
@@ -59,7 +62,7 @@ def main(train_vars):
     height = train_vars['height']
     n_lines = train_vars['n_lines']
     max_segs_per_line = train_vars['max_segs_per_line']
-    exp = "exp2"
+    exp = train_vars['experiment']
     
     if mode == "train":
         # Create new graph
@@ -81,7 +84,7 @@ def main(train_vars):
     
     # Initialize Q-learning agent with given parameters or a blank Q-table if not provided
     ql = qlearn.QLearn(actions=0, alpha=alpha, gamma=gamma, epsilon=epsilon)
-    ql.q = {}  # Initialize empty Q-table (or load it if you're continuing training)
+    ql.q = q_table if q_table is not None else {}  # Initialize empty Q-table (or load it if you're continuing training)
     
     highest_reward = 0  # Track the highest reward achieved during episodes
     
