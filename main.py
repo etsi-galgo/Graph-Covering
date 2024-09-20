@@ -10,6 +10,7 @@ from utils import graph_v01
 from envs.graph_env import GraphEnv
 import qlearn
 from utils.results import save_results, open_results
+from tqdm import tqdm
 
 def parse_opt():
     """
@@ -19,13 +20,13 @@ def parse_opt():
     
     # Mode and general settings
     parser.add_argument('--mode', type=str, default='train', choices=['train','train_more', 'test'], help="Mode: 'train' or 'test'")
-    parser.add_argument('--experiment', type=str, default='exp1', help="Experiment file name")
+    parser.add_argument('--experiment', type=str, default='exp1', help="Experiment file name to load")
     parser.add_argument('--env-iter', type=int, default=200, help="Number of iterations allowed per episode")
-    parser.add_argument('--total-episodes', type=int, default=5000, help="Total number of episodes")
+    parser.add_argument('--total-episodes', type=int, default=7000, help="Total number of episodes")
     parser.add_argument('--alpha', type=float, default=0.3, help="Learning rate for Q-learning")
     parser.add_argument('--gamma', type=float, default=0.8, help="Discount factor for Q-learning")
-    parser.add_argument('--epsilon', type=float, default=0, help="Exploration rate (epsilon) for Q-learning")
-    parser.add_argument('--epsilon-discount', type=float, default=1, help="Discount for epsilon during the training")
+    parser.add_argument('--epsilon', type=float, default=1, help="Exploration rate (epsilon) for Q-learning")
+    parser.add_argument('--epsilon-discount', type=float, default=0.9992, help="Discount for epsilon during the training")
     parser.add_argument('--show', action='store_true', help="Visualize the environment during execution")
 
     
@@ -65,6 +66,7 @@ def main(train_vars):
     exp = train_vars['experiment']
     
     if mode == "train":
+        q_table = {}
         # Create new graph
         graph = graph_v01.MyGraph(None, base, width, height, n_lines, max_segs_per_line)        
         
@@ -74,6 +76,7 @@ def main(train_vars):
         
     elif mode == "test":
         epsilon = 0  # Disable exploration during testing
+        total_episodes = 5
         q_table, vertices = open_results(exp)
         graph = graph_v01.MyGraph(vertices, base)
     
@@ -84,12 +87,12 @@ def main(train_vars):
     
     # Initialize Q-learning agent with given parameters or a blank Q-table if not provided
     ql = qlearn.QLearn(actions=0, alpha=alpha, gamma=gamma, epsilon=epsilon)
-    ql.q = q_table if q_table is not None else {}  # Initialize empty Q-table (or load it if you're continuing training)
+    ql.q = q_table  # Initialize empty Q-table (or load it if you're continuing training)
     
     highest_reward = 0  # Track the highest reward achieved during episodes
     
     # Iterate over the number of episodes
-    for episode in range(total_episodes):
+    for episode in tqdm(range(total_episodes)):
         connected_graph = graph.delaunay_graph()
         env_ = GraphEnv(connected_graph)  # Initialize environment with the connected graph
         observation = env_.reset()  # Reset the environment for each episode
@@ -121,35 +124,44 @@ def main(train_vars):
             # Perform the chosen action and receive the new state, reward, and completion status
             observation, reward, done, _ = env_.step(action, node)
             cumulated_reward += reward  # Update cumulative reward
-
-            print(f"Step {i} - Action: {action}, Reward: {reward}")
+            
+            if mode == "test":
+                print(f"Step {i} - Action: {action}, Reward: {reward}")
 
             # Track the highest reward achieved so far
             if cumulated_reward > highest_reward:
                 highest_reward = cumulated_reward
 
             next_state = ''.join(map(str, observation))  # Convert next observation into a string state
-            print(f"State: {next_state}")
+            #print(f"State: {next_state}")
 
             # Update Q-table using the Q-learning algorithm
-            ql.learn(state, action, reward, next_state)
+            if not mode == "test":
+                ql.learn(state, action, reward, next_state)
 
             # If the episode is done (reached a terminal state), exit the loop
             if done:
                 break
 
             state = next_state  # Move to the next state for the next iteration
-
+        
+        
+        
+        seg_left = sum(env_.graph.es["is_segment"])
+        n_seg = graph.n_segments
+        print(f"Segments left: {seg_left} / {n_seg}")   
         print(f"Cumulated reward: {cumulated_reward}")   
         env_.close()  # Clean up the environment at the end of each episode
         
     # Safe vertices
     vertices = graph.vertices
     # Save the results after training/testing
-    save_results(ql.q, vertices, cumulated_reward_dic={"episode": episode + 1, "reward": cumulated_reward},
-                 segments_covered_dic={}, coverage_distance_dic={})
+    if not mode == "test":
+        save_results(ql.q, vertices, cumulated_reward_dic={"episode": episode + 1, "reward": cumulated_reward},
+                     segments_covered_dic={}, coverage_distance_dic={})
         
 
 if __name__ == "__main__":
     opt = parse_opt()  # Parse arguments from the command line
-    main(vars(opt))  # Pass the arguments as a dictionary to the main function
+    for i in range(1):
+        main(vars(opt))  # Pass the arguments as a dictionary to the main function

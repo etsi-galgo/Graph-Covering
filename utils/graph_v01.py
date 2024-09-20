@@ -233,12 +233,12 @@ def shortest_path(graph, node):
     shortest_path = graph.get_shortest_paths(node, to=base_idx, weights=graph.es['weight'], output='vpath')
 
     # Print the shortest path as a list of vertices
-    print("Shortest path in the undirected weighted graph:", shortest_path[0])
+    #print("Shortest path in the undirected weighted graph:", shortest_path[0])
 
     # Print the total weight of the shortest path
     path_edges = graph.get_shortest_paths(node, to=base_idx, weights=graph.es['weight'], output='epath')[0]
     total_weight = sum(graph.es[edge]['weight'] for edge in path_edges)
-    print("Total weight of the shortest path:", total_weight)
+    #print("Total weight of the shortest path:", total_weight)
     return total_weight
     
 def total_length(graph):

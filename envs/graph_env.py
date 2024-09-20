@@ -148,7 +148,7 @@ class GraphEnv(gym.Env):
         #Recharging on the base:
         if self.graph.vs[new_node]['base'] == True:
             self.battery = self.max_battery 
-            print("recharge")
+         #   print("recharge")
         
         
         self.total_traveled_distance += traveled_distance #Traveled distance counter
