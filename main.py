@@ -11,6 +11,7 @@ from envs.graph_env import GraphEnv
 import qlearn
 from utils.results import save_results, open_results
 from tqdm import tqdm
+import matplotlib.pyplot as plt
 
 def parse_opt():
     """
@@ -22,11 +23,11 @@ def parse_opt():
     parser.add_argument('--mode', type=str, default='train', choices=['train','train_more', 'test'], help="Mode: 'train' or 'test'")
     parser.add_argument('--experiment', type=str, default='exp1', help="Experiment file name to load")
     parser.add_argument('--env-iter', type=int, default=200, help="Number of iterations allowed per episode")
-    parser.add_argument('--total-episodes', type=int, default=7000, help="Total number of episodes")
+    parser.add_argument('--total-episodes', type=int, default=10000, help="Total number of episodes")
     parser.add_argument('--alpha', type=float, default=0.3, help="Learning rate for Q-learning")
     parser.add_argument('--gamma', type=float, default=0.8, help="Discount factor for Q-learning")
     parser.add_argument('--epsilon', type=float, default=1, help="Exploration rate (epsilon) for Q-learning")
-    parser.add_argument('--epsilon-discount', type=float, default=0.9992, help="Discount for epsilon during the training")
+    parser.add_argument('--epsilon-discount', type=float, default=0.9997, help="Discount for epsilon during the training")
     parser.add_argument('--show', action='store_true', help="Visualize the environment during execution")
 
     
@@ -91,13 +92,18 @@ def main(train_vars):
     
     highest_reward = 0  # Track the highest reward achieved during episodes
     
+    max_change_threshold = 1e-15  # Define a threshold for convergence
+    last_q_values = ql.q.copy()  # Store last Q-table values for comparison
+    rewards_list = []
+    
     # Iterate over the number of episodes
     for episode in tqdm(range(total_episodes)):
         connected_graph = graph.delaunay_graph()
-        env_ = GraphEnv(connected_graph)  # Initialize environment with the connected graph
+        env_ = GraphEnv(connected_graph, ql)  # Initialize environment with the connected graph
         observation = env_.reset()  # Reset the environment for each episode
         done = False  # Flag for episode termination
         cumulated_reward = 0  # Track cumulative reward per episode
+        
         
         # Decay epsilon during training if it's greater than a minimum threshold
         if ql.epsilon > 0.05:
@@ -124,16 +130,19 @@ def main(train_vars):
             # Perform the chosen action and receive the new state, reward, and completion status
             observation, reward, done, _ = env_.step(action, node)
             cumulated_reward += reward  # Update cumulative reward
+            # Inside your episode loop
+            
             
             if mode == "test":
                 print(f"Step {i} - Action: {action}, Reward: {reward}")
+                print(f"State: {observation}")
 
             # Track the highest reward achieved so far
             if cumulated_reward > highest_reward:
                 highest_reward = cumulated_reward
 
             next_state = ''.join(map(str, observation))  # Convert next observation into a string state
-            #print(f"State: {next_state}")
+            
 
             # Update Q-table using the Q-learning algorithm
             if not mode == "test":
@@ -141,17 +150,25 @@ def main(train_vars):
 
             # If the episode is done (reached a terminal state), exit the loop
             if done:
+                print(i)
                 break
 
             state = next_state  # Move to the next state for the next iteration
-        
-        
-        
+            
         seg_left = sum(env_.graph.es["is_segment"])
+        rewards_list.append(cumulated_reward)
         n_seg = graph.n_segments
         print(f"Segments left: {seg_left} / {n_seg}")   
         print(f"Cumulated reward: {cumulated_reward}")   
         env_.close()  # Clean up the environment at the end of each episode
+        
+        max_change = max(abs(last_q_values.get((state, action), 0) - ql.q.get((state, action), 0))
+                         for action in ql.actions)
+
+        if max_change < max_change_threshold:
+            print(f"Q-table has converged at episode {episode + 1}.")
+
+        last_q_values = ql.q.copy()  # Update for next comparison
         
     # Safe vertices
     vertices = graph.vertices
@@ -159,9 +176,15 @@ def main(train_vars):
     if not mode == "test":
         save_results(ql.q, vertices, cumulated_reward_dic={"episode": episode + 1, "reward": cumulated_reward},
                      segments_covered_dic={}, coverage_distance_dic={})
+
+    plt.plot(rewards_list)
+    plt.xlabel('Episode')
+    plt.ylabel('Cumulative Reward')
+    plt.title('Training Progress')
+    plt.show()
         
 
 if __name__ == "__main__":
     opt = parse_opt()  # Parse arguments from the command line
-    for i in range(1):
+    for i in range(10):
         main(vars(opt))  # Pass the arguments as a dictionary to the main function

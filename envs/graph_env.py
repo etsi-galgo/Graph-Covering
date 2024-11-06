@@ -41,8 +41,8 @@ class GraphEnv(gym.Env):
     """
     #TODO: Change covered/not covered by covering X times: binary to integer
 
-    def __init__(self, graph, max_battery:int=500, 
-                 cover_reward=0.02, move_reward=-0.001, crash_reward=-1):
+    def __init__(self, graph, qlearn_instance, max_battery:int=500, 
+                 cover_reward=1, move_reward=-1, crash_reward=-1):
         
         self.__version__ = "0.0.1"
         """
@@ -56,7 +56,7 @@ class GraphEnv(gym.Env):
         move_reward:  a negative coefficient associated to every motion 
         crash_reward: big negative constant, reward when battery is over
         """
-        
+        self.qlearn_instance = qlearn_instance  # Store the QLearn instance
         self.graph = graph
         self.max_battery = max_battery
         self.cover_reward = cover_reward
@@ -65,6 +65,7 @@ class GraphEnv(gym.Env):
         
         # visualization
         self.viewer = None
+        self.visit_count = {}
         
 
     def reset(self):
@@ -73,12 +74,13 @@ class GraphEnv(gym.Env):
 
         Returns initial state
         """
+        
         base_node = len(self.graph.vs)-1 #Starting on the base station
         #TODO: Change this to find a base by features on any graph 
         #TODO: Choose between various bases
         
         self.graph.vs[base_node]['here'] = True #Position for monitoring (Used for visualization only)
-        
+        self.visit_count = {}
         self.battery = self.max_battery #Initialize with max battery level
 
         self.state = self._get_state(base_node) #Initial state
@@ -112,11 +114,14 @@ class GraphEnv(gym.Env):
         done : Episode Termination Flag
         
         """
+        self.visit_count = self.qlearn_instance.get_visitation_count(''.join(map(str, self.state)) , action)
         action_space = self._get_actions(node) #Depends on number of edges of every node
         #TODO: avoid counting edges two times 
         
         new_node = action_space[action] #Change a node appling a given action
         self.state = self._get_state(new_node) #State change 
+ #       print("State: ", self.state, "; Action: ", action)
+ #       print("Visited: ", self.visit_count)
         
         #The weight of chosen edge is equal to traveled distance in this step:
         traveled_distance = self.graph.es.select(_within=[node,new_node])["weight"][0] 
@@ -256,63 +261,66 @@ class GraphEnv(gym.Env):
 
         charged = self._battery_level()
 
-        return node, is_segment, covered, charged
+        return node, is_segment, charged
     
     def _distance_to_the_base(self, node):
         (self.graph.vs[node]['x']**2+self.graph.vs[node]['y']**2)
         
         
     
-    def _get_reward(self, node, new_node):  
+    def _get_reward(self, node, new_node):
         """
-        The reward function
+        The normalized reward function
         
         Parameters
         ----------
         node : current node
         new_node : a node after applying a chosen action
         
-        Returns the reward value
+        Returns the normalized reward value
         """
         current_edge = self.graph.es.select(_within=[node, new_node])
-        traveled_distance = current_edge["weight"][0]
         covered_segment = current_edge["is_segment"][0]
-        overlapping = current_edge["covered"][0]
         
         # Penalize for low battery
         discharged = self.battery < 100        
         shortest_path = graph_v01.shortest_path(self.graph, new_node)
-        longest_path = 142  # Diagonal
-        relative_path = shortest_path / longest_path
         
         segments_left = sum(self.graph.es["is_segment"])
-        part_left = segments_left / self.n_segments 
         
         crash_free = self.battery > shortest_path
         
-        # Larger reward for covering new segments, not dependent on distance:
-        r_cov = self.cover_reward * covered_segment + (self.n_segments - part_left) * covered_segment * 2
+        # Coverage reward normalized (between 0 and 1)
+        r_cov = (self.n_segments - segments_left) * covered_segment / self.n_segments
         
-        # Motivate movement toward uncovered segments but penalize redundant movement:
-        if overlapping == 0:  # Uncovered segment
-            r_move = traveled_distance * self.move_reward
-        else:  # Already covered segment
-            r_move = traveled_distance * self.move_reward * 2  # Heavier penalty for redundant moves
+        # Movement penalty 
+        r_move = 0.5 + 0.5 *current_edge["covered"][0]
         
-        # If everything is covered, give a large reward:
+        # Battery penalty normalized (between 0 and -1)
+        battery_penalty = shortest_path / (self.battery if self.battery > 0 else 1)
+        
+        # If everything is covered, return a large normalized reward
         if segments_left == 0:
-            return 10
+            return 10  # Normalize max reward to 1
         
-        # If battery is not enough to make it back to base, penalize heavily:
+        # If battery is not enough to make it back to base, return a large penalty
         if not crash_free:
-            return -5  # Stronger penalty for battery depletion
+            return -5  # Normalize crash to -1
         
-        # Add more penalty for low battery levels:
-        battery_penalty = -0.2 * discharged * relative_path
+        # Add visitation bonus normalized (between 0 and 1)
+        visitation_bonus = 1 / (1 + self.visit_count)
         
-        return r_cov + r_move + battery_penalty
-    
-    
+        # If battery is discharged, apply battery penalty
+        if discharged:
+            return -battery_penalty
+        
+        # Combine the normalized rewards and penalties, scaling the final result between -1 and 1
+        total_reward = 0.8 * r_cov - 0.05 * r_move + 0.15 * visitation_bonus
+        
+        # Ensure total reward is between -1 and 1
+        return max(min(total_reward, 1), -1)
+        
+        
     def _battery_level(self):   
         """
         Battery discretisation by levels
@@ -359,6 +367,6 @@ class GraphEnv(gym.Env):
             edge_color = edge_color,
             
         )
-
+    
         return image
       

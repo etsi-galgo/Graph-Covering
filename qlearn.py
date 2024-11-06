@@ -7,6 +7,7 @@ class QLearn:
         self.alpha = alpha      # learning rate
         self.gamma = gamma      # discount factor
         self.actions = actions
+        self.visit_count = {}  # Track state-action visit counts
 
     def getQ(self, state, action):
         """Get the Q-value for a state-action pair, defaulting to 0 if unseen."""
@@ -43,3 +44,9 @@ class QLearn:
         """Perform the Q-learning update for a given transition."""
         maxqnew = max([self.getQ(state2, a) for a in self.actions])  # max Q(s', a')
         self.learnQ(state1, action1, reward, reward + self.gamma * maxqnew)
+        
+        # Update visitation count
+        self.visit_count[(state1, action1)] = self.visit_count.get((state1, action1), 0) + 1
+        
+    def get_visitation_count(self, state, action):
+        return self.visit_count.get((state, action), 0)       
